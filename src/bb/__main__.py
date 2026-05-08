@@ -1,5 +1,9 @@
+from .config import get_config
+
+
 def main():
-    print("Hello from budget-bot!")
+    config = get_config()
+    print(config.message)
 
 
 if __name__ == "__main__":
