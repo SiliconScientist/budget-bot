@@ -4,6 +4,8 @@ from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal
 
+from prettytable import PrettyTable
+
 from bb.category import (
     UNCATEGORIZED_CATEGORY,
     UNCATEGORIZED_BUCKET,
@@ -219,21 +221,12 @@ def format_monthly_budget_summary(
     ]
     for bucket in ("needs", "wants", "savings"):
         comparison = comparisons[bucket]
-        target_text = format_percentage(comparison.target_fraction)
-        actual_text = (
-            format_percentage(comparison.actual_fraction)
-            if comparison.actual_fraction is not None
-            else "n/a"
-        )
-        lines.append(
-            f"{format_category_label(bucket)}: "
-            f"target {target_text}  actual {actual_text}  "
-            f"total {format_currency(comparison.actual_spend)}"
-        )
-        for category, total in sorted(spend_by_category.get(bucket, {}).items()):
-            lines.append(
-                f"  - {format_category_label(category)}: {format_currency(total)}"
+        lines.extend(
+            format_budget_bucket_summary_section(
+                comparison,
+                spend_by_category.get(bucket, {}),
             )
+        )
 
     if include_uncategorized_transactions:
         lines.append(
@@ -281,6 +274,48 @@ def format_signed_currency(amount: Decimal) -> str:
 
 def format_category_label(category: str) -> str:
     return category.replace("_", " ").title()
+
+
+def format_budget_bucket_summary_section(
+    comparison: BudgetBucketPercentageComparison,
+    spend_by_category: dict[str, Decimal],
+) -> list[str]:
+    actual_text = (
+        format_percentage(comparison.actual_fraction)
+        if comparison.actual_fraction is not None
+        else "n/a"
+    )
+    target_amount = comparison.monthly_income * comparison.target_fraction
+
+    category_table = make_summary_table()
+    for category, total in sorted(spend_by_category.items()):
+        category_table.add_row([format_category_label(category), format_currency(total)])
+
+    summary_table = make_summary_table()
+    summary_table.add_row(["Target", format_currency(target_amount)])
+    summary_table.add_row(["Total", format_currency(comparison.actual_spend)])
+    summary_table.add_row(
+        ["Target percent", format_percentage(comparison.target_fraction)]
+    )
+    summary_table.add_row(["Percent of income", actual_text])
+
+    lines = [format_category_label(comparison.bucket)]
+    if spend_by_category:
+        lines.extend(category_table.get_string().splitlines())
+    lines.extend(summary_table.get_string().splitlines())
+    return lines
+
+
+def make_summary_table() -> PrettyTable:
+    table = PrettyTable()
+    table.field_names = ["label", "value"]
+    table.header = False
+    table.border = True
+    table.align["label"] = "l"
+    table.align["value"] = "r"
+    table.left_padding_width = 1
+    table.right_padding_width = 1
+    return table
 
 
 def format_percentage(fraction: Decimal) -> str:

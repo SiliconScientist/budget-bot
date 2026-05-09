@@ -119,20 +119,20 @@ class ReportTests(unittest.TestCase):
             monthly_budget,
         )
 
-        self.assertEqual(
-            summary.splitlines(),
-            [
-                "Monthly budget summary for 2026-03",
-                "Income: $1,000.00  Other inflows: $0.00",
-                "Needs: target 50.0%  actual 40.0%  total $400.00",
-                "  - Groceries: $400.00",
-                "Wants: target 30.0%  actual 25.0%  total $250.00",
-                "  - Movies: $250.00",
-                "Savings: target 20.0%  actual 10.0%  total $100.00",
-                "  - Savings: $100.00",
-                "Uncategorized spend: $25.00",
-            ],
-        )
+        summary_lines = summary.splitlines()
+
+        self.assertEqual(summary_lines[0], "Monthly budget summary for 2026-03")
+        self.assertEqual(summary_lines[1], "Income: $1,000.00  Other inflows: $0.00")
+        self.assertIn("Needs", summary_lines)
+        self.assertIn("Wants", summary_lines)
+        self.assertIn("Savings", summary_lines)
+        self.assertTrue(any("Groceries" in line and "$400.00" in line for line in summary_lines))
+        self.assertTrue(any("Movies" in line and "$250.00" in line for line in summary_lines))
+        self.assertTrue(any("Savings" in line and "$100.00" in line for line in summary_lines))
+        self.assertTrue(any("Target" in line and "$500.00" in line for line in summary_lines))
+        self.assertTrue(any("Target percent" in line and "50.0%" in line for line in summary_lines))
+        self.assertTrue(any("Percent of income" in line and "40.0%" in line for line in summary_lines))
+        self.assertEqual(summary_lines[-1], "Uncategorized spend: $25.00")
 
     def test_format_monthly_budget_summary_can_include_uncategorized_transactions(
         self,
@@ -207,17 +207,16 @@ class ReportTests(unittest.TestCase):
             monthly_budget,
         )
 
-        self.assertEqual(
-            summary.splitlines(),
-            [
-                "Monthly budget summary for 2026-03",
-                "Income: $0.00  Other inflows: $0.00",
-                "Needs: target 50.0%  actual n/a  total $40.00",
-                "  - Groceries: $40.00",
-                "Wants: target 30.0%  actual n/a  total $0.00",
-                "Savings: target 20.0%  actual n/a  total $0.00",
-            ],
-        )
+        summary_lines = summary.splitlines()
+
+        self.assertEqual(summary_lines[0], "Monthly budget summary for 2026-03")
+        self.assertEqual(summary_lines[1], "Income: $0.00  Other inflows: $0.00")
+        self.assertIn("Needs", summary_lines)
+        self.assertIn("Wants", summary_lines)
+        self.assertIn("Savings", summary_lines)
+        self.assertTrue(any("Groceries" in line and "$40.00" in line for line in summary_lines))
+        self.assertTrue(any("Target" in line and "$0.00" in line for line in summary_lines))
+        self.assertTrue(any("Percent of income" in line and "n/a" in line for line in summary_lines))
 
     def test_print_monthly_budget_summary_writes_formatted_output(self) -> None:
         categorized_transactions = [

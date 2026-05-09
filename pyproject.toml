@@ -4,4 +4,4 @@ version = "0.1.0"
 description = "Budget Bot is a personal finance assistant that helps you track your expenses, set budgets, and achieve your financial goals."
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = ["prettytable>=3.16.0"]
