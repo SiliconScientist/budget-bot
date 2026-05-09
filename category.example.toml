@@ -1,0 +1,61 @@
+# User-editable categorization rules.
+# Copy this file to category.toml and edit category.toml locally.
+# Rules are evaluated in order, so earlier matches win.
+
+[[rules]]
+id = "paycheck_income"
+category = "Income"
+description_contains = ["PAYROLL"]
+is_income = true
+
+[[rules]]
+id = "debit_coffee"
+category = "dining:coffee"
+accounts = ["debit_demo"]
+description_contains = ["COFFEE"]
+
+[[rules]]
+id = "credit_health"
+category = "health:dental"
+accounts = ["credit_demo"]
+details = ["Health & Wellness"]
+
+[[rules]]
+id = "software_subscription"
+category = "software:subscription"
+description_contains = ["SOFTWARE SUBSCRIPTION"]
+
+[[rules]]
+id = "credit_card_payment"
+category = "transfer:credit-card-payment"
+accounts = ["credit_demo"]
+credit_card_payment = true
+
+[[rules]]
+id = "venmo_coaching"
+category = "business:coaching"
+accounts = ["venmo"]
+description_contains = ["Coaching session"]
+transaction_types = ["Charge"]
+
+[[rules]]
+id = "venmo_reimbursement"
+category = "income:reimbursement"
+accounts = ["venmo"]
+venmo_reimbursement = true
+
+[[rules]]
+id = "internal_transfer"
+category = "transfer:internal"
+internal_transfer = true
+
+[[rules]]
+id = "debit_card_general"
+category = "spending:card"
+transaction_types = ["DEBIT_CARD"]
+
+[[rules]]
+id = "venmo_inflow_general"
+category = "transfer:peer-in"
+accounts = ["venmo"]
+is_income = true
