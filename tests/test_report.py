@@ -7,8 +7,10 @@ from decimal import Decimal
 from pathlib import Path
 
 from bb.category import CategorizedTransaction, CategoryRule, UNCATEGORIZED_CATEGORY
+from bb.config import BudgetBucketConfig, MonthlyBudgetConfig
 from bb.format import format_currency
 from bb.report import (
+    compute_budget_target_vs_actual_percentages,
     compute_total_monthly_income,
     compute_total_spend_by_budget_bucket,
     compute_total_spend_by_category_within_bucket,
@@ -21,6 +23,125 @@ from bb.transaction import Transaction
 
 
 class ReportTests(unittest.TestCase):
+    def test_compute_budget_target_vs_actual_percentages(self) -> None:
+        categorized_transactions = [
+            CategorizedTransaction(
+                transaction=Transaction(
+                    account="debit_demo",
+                    source_file=Path("data/raw/debit_demo/2026/march.csv"),
+                    posting_date="03/01/2026",
+                    description="PAYROLL",
+                    amount=Decimal("1000.00"),
+                    source_metadata={},
+                ),
+                bucket="income",
+                category="paycheck",
+                matched_rule_id="paycheck_income",
+                matched_rule=None,
+                matched_on=(),
+            ),
+            CategorizedTransaction(
+                transaction=Transaction(
+                    account="debit_demo",
+                    source_file=Path("data/raw/debit_demo/2026/march.csv"),
+                    posting_date="03/03/2026",
+                    description="Groceries",
+                    amount=Decimal("-400.00"),
+                    source_metadata={},
+                ),
+                bucket="needs",
+                category="groceries",
+                matched_rule_id="groceries",
+                matched_rule=None,
+                matched_on=(),
+            ),
+            CategorizedTransaction(
+                transaction=Transaction(
+                    account="credit_demo",
+                    source_file=Path("data/raw/credit_demo/2026/march.csv"),
+                    posting_date="03/05/2026",
+                    description="Movie",
+                    amount=Decimal("-250.00"),
+                    source_metadata={},
+                ),
+                bucket="wants",
+                category="movies",
+                matched_rule_id="movies",
+                matched_rule=None,
+                matched_on=(),
+            ),
+            CategorizedTransaction(
+                transaction=Transaction(
+                    account="debit_demo",
+                    source_file=Path("data/raw/debit_demo/2026/march.csv"),
+                    posting_date="03/04/2026",
+                    description="Savings transfer",
+                    amount=Decimal("-100.00"),
+                    source_metadata={},
+                ),
+                bucket="savings",
+                category="savings",
+                matched_rule_id="savings",
+                matched_rule=None,
+                matched_on=(),
+            ),
+        ]
+        monthly_budget = MonthlyBudgetConfig(
+            needs=BudgetBucketConfig(frac=0.5, categories=("groceries",)),
+            wants=BudgetBucketConfig(frac=0.3, categories=("movies",)),
+            savings=BudgetBucketConfig(frac=0.2, categories=("savings",)),
+        )
+
+        comparisons = compute_budget_target_vs_actual_percentages(
+            categorized_transactions,
+            monthly_budget,
+        )
+
+        self.assertEqual(comparisons["needs"].target_fraction, Decimal("0.5"))
+        self.assertEqual(comparisons["needs"].actual_fraction, Decimal("0.4"))
+        self.assertEqual(comparisons["needs"].difference_fraction, Decimal("-0.1"))
+        self.assertEqual(comparisons["wants"].actual_fraction, Decimal("0.25"))
+        self.assertEqual(comparisons["wants"].difference_fraction, Decimal("-0.05"))
+        self.assertEqual(comparisons["savings"].actual_fraction, Decimal("0.1"))
+        self.assertEqual(comparisons["savings"].difference_fraction, Decimal("-0.1"))
+
+    def test_compute_budget_target_vs_actual_percentages_handles_zero_income_month(
+        self,
+    ) -> None:
+        categorized_transactions = [
+            CategorizedTransaction(
+                transaction=Transaction(
+                    account="debit_demo",
+                    source_file=Path("data/raw/debit_demo/2026/march.csv"),
+                    posting_date="03/03/2026",
+                    description="Groceries",
+                    amount=Decimal("-40.00"),
+                    source_metadata={},
+                ),
+                bucket="needs",
+                category="groceries",
+                matched_rule_id="groceries",
+                matched_rule=None,
+                matched_on=(),
+            )
+        ]
+        monthly_budget = MonthlyBudgetConfig(
+            needs=BudgetBucketConfig(frac=0.5, categories=("groceries",)),
+            wants=BudgetBucketConfig(frac=0.3, categories=("movies",)),
+            savings=BudgetBucketConfig(frac=0.2, categories=("savings",)),
+        )
+
+        comparisons = compute_budget_target_vs_actual_percentages(
+            categorized_transactions,
+            monthly_budget,
+        )
+
+        self.assertFalse(comparisons["needs"].has_income)
+        self.assertIsNone(comparisons["needs"].actual_fraction)
+        self.assertIsNone(comparisons["needs"].difference_fraction)
+        self.assertEqual(comparisons["needs"].actual_spend, Decimal("40.00"))
+        self.assertEqual(comparisons["needs"].monthly_income, Decimal("0"))
+
     def test_compute_total_monthly_income_sums_income_transactions(self) -> None:
         categorized_transactions = [
             CategorizedTransaction(

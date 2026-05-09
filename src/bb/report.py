@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import dataclass
 from decimal import Decimal
 
 from bb.category import (
     UNCATEGORIZED_BUCKET,
     CategorizedTransaction,
 )
+from bb.config import MonthlyBudgetConfig
 from bb.format import format_currency
 
 
@@ -107,6 +109,69 @@ def compute_total_uncategorized_spend(
         ),
         start=Decimal("0"),
     )
+
+
+@dataclass(frozen=True)
+class BudgetBucketPercentageComparison:
+    bucket: str
+    target_fraction: Decimal
+    actual_fraction: Decimal | None
+    difference_fraction: Decimal | None
+    actual_spend: Decimal
+    monthly_income: Decimal
+    has_income: bool
+
+
+def compute_budget_bucket_percentage_comparison(
+    bucket: str,
+    target_fraction: float,
+    actual_spend: Decimal,
+    monthly_income: Decimal,
+) -> BudgetBucketPercentageComparison:
+    target_fraction_decimal = Decimal(str(target_fraction))
+    if monthly_income == 0:
+        return BudgetBucketPercentageComparison(
+            bucket=bucket,
+            target_fraction=target_fraction_decimal,
+            actual_fraction=None,
+            difference_fraction=None,
+            actual_spend=actual_spend,
+            monthly_income=monthly_income,
+            has_income=False,
+        )
+
+    actual_fraction = actual_spend / monthly_income
+    return BudgetBucketPercentageComparison(
+        bucket=bucket,
+        target_fraction=target_fraction_decimal,
+        actual_fraction=actual_fraction,
+        difference_fraction=actual_fraction - target_fraction_decimal,
+        actual_spend=actual_spend,
+        monthly_income=monthly_income,
+        has_income=True,
+    )
+
+
+def compute_budget_target_vs_actual_percentages(
+    categorized_transactions: list[CategorizedTransaction],
+    monthly_budget: MonthlyBudgetConfig,
+) -> dict[str, BudgetBucketPercentageComparison]:
+    monthly_income = compute_total_monthly_income(categorized_transactions)
+    spend_by_bucket = compute_total_spend_by_budget_bucket(categorized_transactions)
+    bucket_targets = {
+        "needs": monthly_budget.needs.frac,
+        "wants": monthly_budget.wants.frac,
+        "savings": monthly_budget.savings.frac,
+    }
+    return {
+        bucket: compute_budget_bucket_percentage_comparison(
+            bucket=bucket,
+            target_fraction=target_fraction,
+            actual_spend=spend_by_bucket.get(bucket, Decimal("0")),
+            monthly_income=monthly_income,
+        )
+        for bucket, target_fraction in bucket_targets.items()
+    }
 
 
 def format_signed_currency(amount: Decimal) -> str:
