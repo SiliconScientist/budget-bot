@@ -13,6 +13,7 @@ from bb.category import (
     CategoryRuleConfigError,
     CategorizedTransaction,
     UNCATEGORIZED_CATEGORY,
+    UNCATEGORIZED_BUCKET,
     categorize_transaction,
     load_category_rules,
 )
@@ -100,6 +101,7 @@ class CategorizationFixtureTests(unittest.TestCase):
         self.assertIsInstance(rules[0], CategoryRule)
         self.assertEqual(rules[0].id, "paycheck_income")
         self.assertEqual(rules[0].category, "income:paycheck")
+        self.assertEqual(rules[0].bucket, "income")
         self.assertEqual(rules[0].description_contains, ("PAYROLL",))
         self.assertEqual(rules[0].accounts, ())
         self.assertTrue(rules[0].is_income)
@@ -115,6 +117,22 @@ class CategorizationFixtureTests(unittest.TestCase):
             load_category_rules(config_path)
 
     def test_invalid_rule_field_type_is_rejected(self) -> None:
+        config_path = write_rules_file(
+            (
+                "[[rules]]\n"
+                'id = "coffee"\n'
+                'category = "dining:coffee"\n'
+                'bucket = ""\n'
+            )
+        )
+
+        with self.assertRaisesRegex(
+            CategoryRuleConfigError,
+            r"rules\[1\]\.bucket must be a non-empty string",
+        ):
+            load_category_rules(config_path)
+
+    def test_invalid_rule_boolean_field_type_is_rejected(self) -> None:
         config_path = write_rules_file(
             (
                 "[[rules]]\n"
@@ -182,7 +200,7 @@ class CategorizationFixtureTests(unittest.TestCase):
 
         self.assertIs(categorized_transaction.transaction, transaction)
 
-    def test_categorized_result_carries_category_and_matched_rule_id(self) -> None:
+    def test_categorized_result_carries_bucket_category_and_matched_rule_id(self) -> None:
         rules = load_category_rules(RULES_FIXTURE)
         transaction = next(
             tx
@@ -192,10 +210,12 @@ class CategorizationFixtureTests(unittest.TestCase):
 
         categorized_transaction = categorize_transaction(transaction, rules)
 
+        self.assertEqual(categorized_transaction.bucket, "wants")
         self.assertEqual(categorized_transaction.category, "dining:coffee")
         self.assertEqual(categorized_transaction.matched_rule_id, "debit_coffee")
         self.assertIsNotNone(categorized_transaction.matched_rule)
         self.assertEqual(categorized_transaction.matched_rule.id, "debit_coffee")
+        self.assertEqual(categorized_transaction.matched_rule.bucket, "wants")
         self.assertEqual(
             categorized_transaction.matched_on,
             ("account=debit_demo", "description_contains='COFFEE'"),
@@ -213,6 +233,7 @@ class CategorizationFixtureTests(unittest.TestCase):
 
         self.assertIsNotNone(categorized_transaction.matched_rule)
         self.assertEqual(categorized_transaction.matched_rule.id, "credit_health")
+        self.assertEqual(categorized_transaction.bucket, "needs")
         self.assertEqual(
             categorized_transaction.matched_rule.details,
             ("Health & Wellness",),
@@ -232,6 +253,7 @@ class CategorizationFixtureTests(unittest.TestCase):
 
         categorized_transaction = categorize_transaction(coffee_transaction, rules)
 
+        self.assertEqual(categorized_transaction.bucket, "wants")
         self.assertEqual(categorized_transaction.category, "dining:coffee")
         self.assertEqual(categorized_transaction.matched_rule_id, "debit_coffee")
 
@@ -245,6 +267,7 @@ class CategorizationFixtureTests(unittest.TestCase):
 
         categorized_transaction = categorize_transaction(reimbursement_transaction, rules)
 
+        self.assertEqual(categorized_transaction.bucket, "income")
         self.assertEqual(categorized_transaction.category, "income:reimbursement")
         self.assertEqual(
             categorized_transaction.matched_rule_id,
@@ -254,6 +277,24 @@ class CategorizationFixtureTests(unittest.TestCase):
             categorized_transaction.matched_on,
             ("venmo_reimbursement=true", "account=venmo"),
         )
+
+    def test_unmatched_transactions_fall_back_to_uncategorized_bucket(self) -> None:
+        transaction = Transaction(
+            account="debit_demo",
+            source_file=Path("data/raw/debit_demo/2026/march.csv"),
+            posting_date="03/20/2026",
+            description="UNKNOWN PURCHASE",
+            amount=Decimal("-12.34"),
+            source_metadata={
+                "details": "DEBIT",
+                "transaction_type": "DEBIT_CARD",
+            },
+        )
+
+        categorized_transaction = categorize_transaction(transaction, [])
+
+        self.assertEqual(categorized_transaction.bucket, UNCATEGORIZED_BUCKET)
+        self.assertEqual(categorized_transaction.category, UNCATEGORIZED_CATEGORY)
 
     def test_credit_card_payment_rule_matches_explicit_flag(self) -> None:
         rules = load_category_rules(RULES_FIXTURE)

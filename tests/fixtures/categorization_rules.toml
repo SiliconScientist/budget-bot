@@ -1,35 +1,41 @@
 [[rules]]
 id = "paycheck_income"
 category = "income:paycheck"
+bucket = "income"
 description_contains = ["PAYROLL"]
 is_income = true
 
 [[rules]]
 id = "debit_coffee"
 category = "dining:coffee"
+bucket = "wants"
 accounts = ["debit_demo"]
 description_contains = ["COFFEE"]
 
 [[rules]]
 id = "credit_health"
 category = "health:dental"
+bucket = "needs"
 accounts = ["credit_demo"]
 details = ["Health & Wellness"]
 
 [[rules]]
 id = "software_subscription"
 category = "software:subscription"
+bucket = "wants"
 description_contains = ["SOFTWARE SUBSCRIPTION"]
 
 [[rules]]
 id = "credit_card_payment"
 category = "transfer:credit-card-payment"
+bucket = "transfers"
 accounts = ["credit_demo"]
 credit_card_payment = true
 
 [[rules]]
 id = "venmo_coaching"
 category = "business:coaching"
+bucket = "business"
 accounts = ["venmo"]
 description_contains = ["Coaching session"]
 transaction_types = ["Charge"]
@@ -37,21 +43,25 @@ transaction_types = ["Charge"]
 [[rules]]
 id = "venmo_reimbursement"
 category = "income:reimbursement"
+bucket = "income"
 accounts = ["venmo"]
 venmo_reimbursement = true
 
 [[rules]]
 id = "internal_transfer"
 category = "transfer:internal"
+bucket = "transfers"
 internal_transfer = true
 
 [[rules]]
 id = "debit_card_general"
 category = "spending:card"
+bucket = "wants"
 transaction_types = ["DEBIT_CARD"]
 
 [[rules]]
 id = "venmo_inflow_general"
 category = "transfer:peer-in"
+bucket = "transfers"
 accounts = ["venmo"]
 is_income = true

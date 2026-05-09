@@ -13,12 +13,14 @@ from bb.transaction import Transaction
 
 
 UNCATEGORIZED_CATEGORY = "uncategorized"
+UNCATEGORIZED_BUCKET = "uncategorized"
 
 
 @dataclass(frozen=True)
 class CategoryRule:
     id: str
     category: str
+    bucket: str | None = None
     accounts: tuple[str, ...] = ()
     description_contains: tuple[str, ...] = ()
     details: tuple[str, ...] = ()
@@ -33,6 +35,7 @@ class CategoryRule:
 class CategorizedTransaction:
     transaction: Transaction
     category: str
+    bucket: str
     matched_rule_id: str | None
     matched_rule: CategoryRule | None
     matched_on: tuple[str, ...]
@@ -76,6 +79,7 @@ def parse_category_rule(
     return CategoryRule(
         id=require_non_empty_string(rule_data, "id", index),
         category=require_non_empty_string(rule_data, "category", index),
+        bucket=require_optional_non_empty_string(rule_data, "bucket", index),
         accounts=require_string_list(rule_data, "accounts", index),
         description_contains=require_string_list(
             rule_data,
@@ -101,6 +105,21 @@ def require_non_empty_string(
     index: int,
 ) -> str:
     value = rule_data.get(field_name)
+    if not isinstance(value, str) or not value.strip():
+        raise CategoryRuleConfigError(
+            f"rules[{index}].{field_name} must be a non-empty string"
+        )
+    return value
+
+
+def require_optional_non_empty_string(
+    rule_data: Mapping[str, Any],
+    field_name: str,
+    index: int,
+) -> str | None:
+    value = rule_data.get(field_name)
+    if value is None:
+        return None
     if not isinstance(value, str) or not value.strip():
         raise CategoryRuleConfigError(
             f"rules[{index}].{field_name} must be a non-empty string"
@@ -160,6 +179,7 @@ def categorize_transaction(
             return CategorizedTransaction(
                 transaction=transaction,
                 category=rule.category,
+                bucket=rule.bucket or UNCATEGORIZED_BUCKET,
                 matched_rule_id=rule.id,
                 matched_rule=rule,
                 matched_on=get_match_reasons(rule, transaction),
@@ -168,6 +188,7 @@ def categorize_transaction(
     return CategorizedTransaction(
         transaction=transaction,
         category=UNCATEGORIZED_CATEGORY,
+        bucket=UNCATEGORIZED_BUCKET,
         matched_rule_id=None,
         matched_rule=None,
         matched_on=(),

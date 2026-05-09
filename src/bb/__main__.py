@@ -30,9 +30,11 @@ def main() -> None:
             f"{tx.posting_date}  {format_currency(tx.amount):>10}  "
             f"{tx.account:<10}  {tx.description}"
         )
-    # print()
-    # category_rules = load_category_rules(get_category_config_path())
-    # print_categorization_report(categorize_transactions(all_transactions, category_rules))
+    print()
+    category_rules = load_category_rules(get_category_config_path())
+    print_categorization_report(
+        categorize_transactions(all_transactions, category_rules)
+    )
 
 
 if __name__ == "__main__":

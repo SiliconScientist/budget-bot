@@ -6,13 +6,6 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Callable, Iterable, Mapping
 
-from bb.parse import (
-    get_expected_columns,
-    get_statement_parser,
-    read_statement_rows,
-    validate_statement_columns,
-)
-
 
 @dataclass(frozen=True)
 class Transaction:
@@ -69,6 +62,13 @@ MONTH_NAME_TO_NUMBER = {
     "november": 11,
     "december": 12,
 }
+
+from bb.parse import (
+    get_expected_columns,
+    get_statement_parser,
+    read_statement_rows,
+    validate_statement_columns,
+)
 
 
 def load_transactions(account_dir: Path) -> list[Transaction]:
