@@ -62,7 +62,7 @@ class StatementParserTests(unittest.TestCase):
     def test_chase_credit_fixture_documents_expected_normalized_fields(self) -> None:
         transactions = load_fixture_transactions("chase_credit.csv", "credit_demo")
 
-        self.assertEqual(len(transactions), 2)
+        self.assertEqual(len(transactions), 3)
 
         first_tx = transactions[0]
         self.assertEqual(first_tx.account, "credit_demo")
@@ -75,6 +75,22 @@ class StatementParserTests(unittest.TestCase):
                 "details": "Health & Wellness",
                 "transaction_date": "03/22/2026",
                 "transaction_type": "Sale",
+                "memo": "",
+            },
+        )
+
+        payment_tx = transactions[2]
+        self.assertEqual(payment_tx.account, "credit_demo")
+        self.assertEqual(payment_tx.posting_date, "03/04/2026")
+        self.assertEqual(payment_tx.description, "AUTOMATIC PAYMENT - THANK")
+        self.assertEqual(payment_tx.amount, Decimal("-750.00"))
+        self.assertFalse(payment_tx.is_income)
+        self.assertEqual(
+            payment_tx.source_metadata,
+            {
+                "details": "",
+                "transaction_date": "03/04/2026",
+                "transaction_type": "Payment",
                 "memo": "",
             },
         )
@@ -145,7 +161,7 @@ class StatementParserTests(unittest.TestCase):
             credit_transactions = load_transactions(credit_dir)
 
         self.assertEqual(len(debit_transactions), 2)
-        self.assertEqual(len(credit_transactions), 2)
+        self.assertEqual(len(credit_transactions), 3)
         self.assertEqual(debit_transactions[0].account, "debit_demo")
         self.assertEqual(credit_transactions[0].account, "credit_demo")
 

@@ -13,7 +13,6 @@ class Config:
     seed: Optional[int] = None
     message: str = "Hello from budget-bot!"
     raw_data_dir: Path = Path("data/raw")
-    income_account: str = "debit_demo"
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]

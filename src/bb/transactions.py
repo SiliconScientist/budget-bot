@@ -55,6 +55,8 @@ CHASE_CREDIT_COLUMNS = (
     "Memo",
 )
 
+CHASE_CREDIT_PAYMENT_TYPE = "Payment"
+
 VENMO_COLUMNS = (
     "",
     "ID",
@@ -127,7 +129,7 @@ def parse_chase_credit_rows(
             source_file=source_file,
             posting_date=row["Post Date"],
             description=row["Description"],
-            amount=Decimal(row["Amount"]),
+            amount=normalize_chase_credit_amount(row["Type"], row["Amount"]),
             source_metadata={
                 "details": row["Category"],
                 "transaction_date": row["Transaction Date"],
@@ -137,6 +139,13 @@ def parse_chase_credit_rows(
         )
         for row in rows
     ]
+
+
+def normalize_chase_credit_amount(transaction_type: str, raw_amount: str) -> Decimal:
+    amount = Decimal(raw_amount)
+    if transaction_type == CHASE_CREDIT_PAYMENT_TYPE:
+        return -abs(amount)
+    return amount
 
 
 def parse_venmo_amount(raw_amount: str) -> Decimal:
@@ -241,6 +250,14 @@ def load_transactions(account_dir: Path) -> list[Transaction]:
     return transactions
 
 
-def load_income_transactions(raw_data_dir: Path, account_name: str) -> list[Transaction]:
-    account_dir = raw_data_dir / account_name
-    return [tx for tx in load_transactions(account_dir) if tx.is_income]
+def load_all_transactions(raw_data_dir: Path) -> list[Transaction]:
+    transactions: list[Transaction] = []
+
+    for account_dir in sorted(path for path in raw_data_dir.iterdir() if path.is_dir()):
+        transactions.extend(load_transactions(account_dir))
+
+    return transactions
+
+
+def load_income_transactions(raw_data_dir: Path) -> list[Transaction]:
+    return [tx for tx in load_all_transactions(raw_data_dir) if tx.is_income]

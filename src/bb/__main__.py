@@ -7,11 +7,8 @@ from bb.transactions import load_income_transactions
 
 def main() -> None:
     cfg = get_config()
-    income_transactions = load_income_transactions(
-        cfg.raw_data_dir,
-        cfg.income_account,
-    )
-    print_income_report(cfg.income_account, income_transactions)
+    income_transactions = load_income_transactions(cfg.raw_data_dir)
+    print_income_report(income_transactions)
 
 
 if __name__ == "__main__":
