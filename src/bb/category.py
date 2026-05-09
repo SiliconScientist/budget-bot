@@ -12,6 +12,9 @@ except ModuleNotFoundError:  # pragma: no cover - Python < 3.11 fallback
 from bb.transaction import Transaction
 
 
+UNCATEGORIZED_CATEGORY = "uncategorized"
+
+
 @dataclass(frozen=True)
 class CategoryRule:
     id: str
@@ -26,7 +29,7 @@ class CategoryRule:
 @dataclass(frozen=True)
 class CategorizedTransaction:
     transaction: Transaction
-    category: str | None
+    category: str
     matched_rule_id: str | None
 
 
@@ -143,7 +146,7 @@ def categorize_transaction(
 
     return CategorizedTransaction(
         transaction=transaction,
-        category=None,
+        category=UNCATEGORIZED_CATEGORY,
         matched_rule_id=None,
     )
 

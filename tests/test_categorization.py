@@ -12,6 +12,7 @@ from bb.category import (
     CategoryRule,
     CategoryRuleConfigError,
     CategorizedTransaction,
+    UNCATEGORIZED_CATEGORY,
     categorize_transaction,
     load_category_rules,
 )
@@ -34,7 +35,7 @@ class ExpectedCategory:
     posting_date: str
     description: str
     amount: Decimal
-    expected_category: str | None
+    expected_category: str
     expected_rule_id: str | None
 
 
@@ -62,7 +63,7 @@ def load_expected_categories() -> list[ExpectedCategory]:
                 posting_date=row["posting_date"],
                 description=row["description"],
                 amount=Decimal(row["amount"]),
-                expected_category=row["expected_category"] or None,
+                expected_category=row["expected_category"],
                 expected_rule_id=row["expected_rule_id"] or None,
             )
             for row in reader
@@ -222,7 +223,7 @@ class CategorizationFixtureTests(unittest.TestCase):
             "venmo_reimbursement",
         )
 
-    def test_unmatched_transactions_return_empty_category_result(self) -> None:
+    def test_unmatched_transactions_return_uncategorized_result(self) -> None:
         rules = load_category_rules(RULES_FIXTURE)
         merchant_transaction = next(
             tx
@@ -233,7 +234,7 @@ class CategorizationFixtureTests(unittest.TestCase):
         categorized_transaction = categorize_transaction(merchant_transaction, rules)
 
         self.assertIs(categorized_transaction.transaction, merchant_transaction)
-        self.assertIsNone(categorized_transaction.category)
+        self.assertEqual(categorized_transaction.category, UNCATEGORIZED_CATEGORY)
         self.assertIsNone(categorized_transaction.matched_rule_id)
 
 
