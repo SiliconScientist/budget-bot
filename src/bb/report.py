@@ -68,6 +68,20 @@ def compute_total_monthly_income(
     )
 
 
+def compute_total_non_income_inflows(
+    categorized_transactions: list[CategorizedTransaction],
+) -> Decimal:
+    return sum(
+        (
+            categorized_transaction.transaction.amount
+            for categorized_transaction in categorized_transactions
+            if categorized_transaction.transaction.amount > 0
+            and not categorized_transaction.counts_toward_income
+        ),
+        start=Decimal("0"),
+    )
+
+
 def compute_total_spend_by_budget_bucket(
     categorized_transactions: list[CategorizedTransaction],
 ) -> dict[str, Decimal]:
@@ -184,6 +198,9 @@ def format_monthly_budget_summary(
 ) -> str:
     reporting_month = format_reporting_month(monthly_budget.year, monthly_budget.month)
     total_income = compute_total_monthly_income(categorized_transactions)
+    total_non_income_inflows = compute_total_non_income_inflows(
+        categorized_transactions
+    )
     comparisons = compute_budget_target_vs_actual_percentages(
         categorized_transactions,
         monthly_budget,
@@ -195,7 +212,10 @@ def format_monthly_budget_summary(
 
     lines = [
         f"Monthly budget summary for {reporting_month}",
-        f"Income: {format_currency(total_income)}",
+        (
+            f"Income: {format_currency(total_income)}  "
+            f"Other inflows: {format_currency(total_non_income_inflows)}"
+        ),
     ]
     for bucket in ("needs", "wants", "savings"):
         comparison = comparisons[bucket]

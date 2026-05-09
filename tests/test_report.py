@@ -12,6 +12,7 @@ from bb.format import format_currency
 from bb.report import (
     compute_budget_target_vs_actual_percentages,
     compute_total_monthly_income,
+    compute_total_non_income_inflows,
     compute_total_spend_by_budget_bucket,
     compute_total_spend_by_category_within_bucket,
     compute_total_uncategorized_spend,
@@ -122,7 +123,7 @@ class ReportTests(unittest.TestCase):
             summary.splitlines(),
             [
                 "Monthly budget summary for 2026-03",
-                "Income: $1,000.00",
+                "Income: $1,000.00  Other inflows: $0.00",
                 "Needs: target 50.0%  actual 40.0%  total $400.00",
                 "  - Groceries: $400.00",
                 "Wants: target 30.0%  actual 25.0%  total $250.00",
@@ -210,7 +211,7 @@ class ReportTests(unittest.TestCase):
             summary.splitlines(),
             [
                 "Monthly budget summary for 2026-03",
-                "Income: $0.00",
+                "Income: $0.00  Other inflows: $0.00",
                 "Needs: target 50.0%  actual n/a  total $40.00",
                 "  - Groceries: $40.00",
                 "Wants: target 30.0%  actual n/a  total $0.00",
@@ -474,6 +475,66 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(
             compute_total_monthly_income(categorized_transactions),
             Decimal("1000.00"),
+        )
+
+    def test_compute_total_non_income_inflows_excludes_budget_income(self) -> None:
+        categorized_transactions = [
+            CategorizedTransaction(
+                transaction=Transaction(
+                    account="debit_demo",
+                    source_file=Path("data/raw/debit_demo/2026/april.csv"),
+                    posting_date="04/09/2026",
+                    description="EXAMPLE CHECK DEPOSIT",
+                    amount=Decimal("250.00"),
+                    source_metadata={"details": "CREDIT", "transaction_type": "ACH"},
+                ),
+                bucket="savings",
+                category="savings",
+                counts_toward_income=False,
+                matched_rule_id="example_savings",
+                matched_rule=None,
+                matched_on=(),
+            ),
+            CategorizedTransaction(
+                transaction=Transaction(
+                    account="venmo",
+                    source_file=Path("data/raw/venmo/2026/april.csv"),
+                    posting_date="2026-04-10",
+                    description="Breakfast",
+                    amount=Decimal("125.00"),
+                    source_metadata={
+                        "details": "Complete",
+                        "transaction_type": "Payment",
+                    },
+                ),
+                bucket="wants",
+                category="social",
+                counts_toward_income=False,
+                matched_rule_id="venmo_social",
+                matched_rule=None,
+                matched_on=(),
+            ),
+            CategorizedTransaction(
+                transaction=Transaction(
+                    account="debit_demo",
+                    source_file=Path("data/raw/debit_demo/2026/april.csv"),
+                    posting_date="04/10/2026",
+                    description="PAYROLL",
+                    amount=Decimal("1000.00"),
+                    source_metadata={"details": "CREDIT", "transaction_type": "ACH"},
+                ),
+                bucket="income",
+                category="paycheck",
+                counts_toward_income=True,
+                matched_rule_id="paycheck_income",
+                matched_rule=None,
+                matched_on=(),
+            ),
+        ]
+
+        self.assertEqual(
+            compute_total_non_income_inflows(categorized_transactions),
+            Decimal("375.00"),
         )
 
     def test_compute_total_spend_by_budget_bucket_groups_negative_amounts(self) -> None:

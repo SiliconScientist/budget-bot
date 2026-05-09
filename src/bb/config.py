@@ -108,7 +108,7 @@ class MonthlyBudgetConfig:
                 "insurance",
                 "tuition_education",
                 "pharmacy_medical",
-                "household",
+                "errands",
             ),
         )
     )
@@ -123,7 +123,8 @@ class MonthlyBudgetConfig:
                 "restaurants",
                 "digital_services",
                 "personal_care",
-                "gifts_donations",
+                "social",
+                "travel",
             ),
         )
     )
