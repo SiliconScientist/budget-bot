@@ -3,14 +3,19 @@ I'm tired of tallying up my budget, so I'm building this repo to do it for me
 
 ## Current command
 
-Calculate income from all imported transactions with a positive amount:
+Run the monthly budget summary for the configured month:
 
 ```bash
 python -m src.bb
 ```
 
-The current income report applies the configured monthly filter and prints a
-header like `Income for 2026-02: ...`.
+The CLI:
+
+- loads all imported transactions
+- filters to the configured `monthly_budget.year` and `monthly_budget.month`
+- categorizes the selected month using `category.toml`
+- prints a monthly summary with income, bucket totals, category totals, and
+  needs / wants / savings percentages
 
 ## Configuration
 
@@ -22,9 +27,27 @@ raw_data_path = "data/raw"
 [monthly_budget]
 year = 2026
 month = "february"
+
+[monthly_budget.needs]
+frac = 0.5
+categories = ["rent", "groceries"]
+
+[monthly_budget.wants]
+frac = 0.3
+categories = ["restaurants", "movies"]
+
+[monthly_budget.savings]
+frac = 0.2
+categories = ["savings"]
 ```
 
 See [config.example.toml](config.example.toml) for a generic example.
+
+The monthly budget config does two jobs:
+
+- it selects the reporting month
+- it defines the budget taxonomy and target fractions for `needs`, `wants`,
+  and `savings`
 
 Categorization rules are based on the tracked template
 [category.example.toml](category.example.toml). Copy it to `category.toml` and
@@ -69,61 +92,15 @@ year = 2026
 month = 2
 ```
 
-The current income report applies the configured monthly filter and prints a
-header like `Income for 2026-02: ...`.
+## Budgeting Workflow
 
-## Configuration
-
-The config file shape is:
-
-```toml
-raw_data_path = "data/raw"
-
-[monthly_budget]
-year = 2026
-month = "february"
-```
-
-See [config.example.toml](config.example.toml) for a generic example.
-
-## Monthly Filtering
-
-Monthly filtering uses each transaction's normalized `posting_date`.
-
-- Chase debit: filters by `Posting Date`
-- Chase credit: filters by `Post Date`
-- Venmo: filters by the date portion of `Datetime`
-
-Filtering does not use filenames or directory names for month logic. Those are
-only used for parser routing and file organization.
-
-Supported `monthly_budget.month` syntax:
-
-- month names, case-insensitive: `"february"`, `"February"`, `"FEBRUARY"`
-- numeric strings: `"2"`
-- integers: `2`
-
-Valid month numbers are `1` through `12`.
-
-Examples:
-
-```toml
-[monthly_budget]
-year = 2026
-month = "february"
-```
-
-```toml
-[monthly_budget]
-year = 2026
-month = "2"
-```
-
-```toml
-[monthly_budget]
-year = 2026
-month = 2
-```
+1. Define your monthly taxonomy and target fractions in `config.toml`.
+2. Assign merchants and transaction patterns to categories in `category.toml`.
+3. Run `python -m src.bb` for the selected month.
+4. Interpret the summary:
+   `Needs`, `Wants`, and `Savings` each show target %, actual %, and dollars.
+5. Review the category breakdown under each bucket and fix any missing rules or
+   uncategorized spend.
 
 ## Import Conventions
 
@@ -172,7 +149,7 @@ Categorization rules are defined in TOML, not in Python source.
 5. If nothing matches, the transaction is labeled `uncategorized`.
 
 The CLI also prints a simple categorization inspection report showing each
-transaction, its assigned category, and the matched rule id.
+transaction's monthly budget summary.
 
 ## Rule File Location
 
@@ -245,18 +222,20 @@ example, this is correct:
 ```toml
 [[rules]]
 id = "debit_coffee"
-category = "dining:coffee"
+bucket = "wants"
+category = "restaurants"
 accounts = ["debit_demo"]
 description_contains = ["COFFEE"]
 
 [[rules]]
 id = "debit_card_general"
-category = "spending:card"
+bucket = "wants"
+category = "hobbies"
 transaction_types = ["DEBIT_CARD"]
 ```
 
 `CARD PURCHASE COFFEE` on `debit_demo` will be categorized as
-`dining:coffee`, not `spending:card`, because the first rule matches first.
+`restaurants`, not `hobbies`, because the first rule matches first.
 
 ## Fallback Behavior
 
@@ -275,7 +254,8 @@ Paycheck rule:
 ```toml
 [[rules]]
 id = "paycheck_income"
-category = "Income"
+bucket = "income"
+category = "paycheck"
 description_contains = ["PAYROLL"]
 is_income = true
 ```
@@ -285,7 +265,8 @@ Account-specific coffee rule:
 ```toml
 [[rules]]
 id = "debit_coffee"
-category = "dining:coffee"
+bucket = "wants"
+category = "restaurants"
 accounts = ["debit_demo"]
 description_contains = ["COFFEE"]
 ```
@@ -295,7 +276,8 @@ Chase credit payment rule:
 ```toml
 [[rules]]
 id = "credit_card_payment"
-category = "transfer:credit-card-payment"
+bucket = "transfers"
+category = "credit_card_payment"
 accounts = ["credit_demo"]
 credit_card_payment = true
 ```
@@ -305,7 +287,8 @@ Venmo reimbursement rule:
 ```toml
 [[rules]]
 id = "venmo_reimbursement"
-category = "income:reimbursement"
+bucket = "income"
+category = "reimbursement"
 accounts = ["venmo"]
 venmo_reimbursement = true
 ```
@@ -315,6 +298,7 @@ Internal transfer rule:
 ```toml
 [[rules]]
 id = "internal_transfer"
-category = "transfer:internal"
+bucket = "transfers"
+category = "internal_transfer"
 internal_transfer = true
 ```
