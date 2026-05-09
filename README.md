@@ -26,6 +26,9 @@ month = "february"
 
 See [config.example.toml](config.example.toml) for a generic example.
 
+Categorization rules live in [category.toml](category.toml). They are kept out
+of Python so categories and matching rules stay user-editable.
+
 ## Monthly Filtering
 
 Monthly filtering uses each transaction's normalized `posting_date`.
@@ -92,3 +95,12 @@ account source, you need to:
 1. Add a parser and expected-column definition in `src/bb/transaction.py`.
 2. Teach `get_statement_parser()` and `get_expected_columns()` how to route the new account directory.
 3. Add fixture coverage in `tests/fixtures/` and parser tests in `tests/test_statement_parsers.py`.
+
+## Categorization Rules
+
+Categorization rules are defined in [category.toml](category.toml), not in
+Python source.
+
+- `category.toml` is the user-controlled rules file.
+- Rules are evaluated in order.
+- The first matching rule wins.

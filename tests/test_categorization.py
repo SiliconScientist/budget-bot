@@ -9,6 +9,8 @@ from decimal import Decimal
 from pathlib import Path
 
 from bb.category import (
+    CategoryRule,
+    CategoryRuleConfigError,
     CategorizedTransaction,
     categorize_transaction,
     load_category_rules,
@@ -67,6 +69,13 @@ def load_expected_categories() -> list[ExpectedCategory]:
         ]
 
 
+def write_rules_file(contents: str) -> Path:
+    tmpdir = tempfile.mkdtemp()
+    config_path = Path(tmpdir) / "category.toml"
+    config_path.write_text(contents, encoding="utf-8")
+    return config_path
+
+
 def transaction_key(transaction: Transaction) -> tuple[str, str, str, Decimal]:
     return (
         transaction.account,
@@ -83,6 +92,61 @@ def categorized_transaction_key(
 
 
 class CategorizationFixtureTests(unittest.TestCase):
+    def test_load_category_rules_returns_typed_rule_models(self) -> None:
+        rules = load_category_rules(RULES_FIXTURE)
+
+        self.assertEqual(len(rules), 9)
+        self.assertIsInstance(rules[0], CategoryRule)
+        self.assertEqual(rules[0].id, "paycheck_income")
+        self.assertEqual(rules[0].category, "income:paycheck")
+        self.assertEqual(rules[0].description_contains, ("PAYROLL",))
+        self.assertEqual(rules[0].accounts, ())
+        self.assertTrue(rules[0].is_income)
+
+    def test_missing_rules_array_is_rejected(self) -> None:
+        config_path = write_rules_file('default_category = "misc"\n')
+
+        with self.assertRaisesRegex(
+            CategoryRuleConfigError,
+            r"top-level 'rules' array",
+        ):
+            load_category_rules(config_path)
+
+    def test_invalid_rule_field_type_is_rejected(self) -> None:
+        config_path = write_rules_file(
+            (
+                "[[rules]]\n"
+                'id = "coffee"\n'
+                'category = "dining:coffee"\n'
+                'description_contains = "COFFEE"\n'
+            )
+        )
+
+        with self.assertRaisesRegex(
+            CategoryRuleConfigError,
+            r"rules\[1\]\.description_contains must be an array of strings",
+        ):
+            load_category_rules(config_path)
+
+    def test_duplicate_rule_ids_are_rejected(self) -> None:
+        config_path = write_rules_file(
+            (
+                "[[rules]]\n"
+                'id = "duplicate"\n'
+                'category = "first"\n'
+                "\n"
+                "[[rules]]\n"
+                'id = "duplicate"\n'
+                'category = "second"\n'
+            )
+        )
+
+        with self.assertRaisesRegex(
+            CategoryRuleConfigError,
+            r"rules\[2\]\.id duplicates 'duplicate'",
+        ):
+            load_category_rules(config_path)
+
     def test_fixture_rules_assign_expected_categories_across_sources(self) -> None:
         rules = load_category_rules(RULES_FIXTURE)
         expected_categories = {
