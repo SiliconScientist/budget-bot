@@ -241,12 +241,10 @@ def load_transactions(account_dir: Path) -> list[Transaction]:
     transactions: list[Transaction] = []
     parser = get_statement_parser(account_dir.name)
     expected_columns = get_expected_columns(account_dir.name)
-
-    for csv_file in sorted(account_dir.glob("*.csv")):
+    for csv_file in sorted(account_dir.rglob("*.csv")):
         fieldnames, rows = read_statement_rows(csv_file, expected_columns)
         validate_statement_columns(account_dir.name, fieldnames)
         transactions.extend(parser(account_dir.name, csv_file, rows))
-
     return transactions
 
 

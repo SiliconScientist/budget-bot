@@ -11,7 +11,7 @@ python -m src.bb
 
 ## Import Conventions
 
-Raw statement exports live under `data/raw/<account-name>/`.
+Raw statement exports live under `data/raw/<account-name>/<year>/<month>.csv`.
 
 Parser selection is directory-driven:
 

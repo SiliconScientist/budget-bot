@@ -165,6 +165,18 @@ class StatementParserTests(unittest.TestCase):
         self.assertEqual(debit_transactions[0].account, "debit_demo")
         self.assertEqual(credit_transactions[0].account, "credit_demo")
 
+    def test_nested_statement_files_are_loaded(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            account_dir = Path(tmpdir) / "debit_demo"
+            year_dir = account_dir / "2026"
+            year_dir.mkdir(parents=True)
+            shutil.copy(FIXTURES_DIR / "chase_debit.csv", year_dir / "march.csv")
+
+            transactions = load_transactions(account_dir)
+
+        self.assertEqual(len(transactions), 2)
+        self.assertEqual(transactions[0].source_file.name, "march.csv")
+
     def test_unknown_account_source_is_rejected(self) -> None:
         with self.assertRaises(UnsupportedStatementSource):
             get_statement_parser("savings1234")
