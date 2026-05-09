@@ -175,20 +175,33 @@ def compute_budget_target_vs_actual_percentages(
     monthly_budget: MonthlyBudgetConfig,
 ) -> dict[str, BudgetBucketPercentageComparison]:
     monthly_income = compute_total_monthly_income(categorized_transactions)
+    total_non_income_inflows = compute_total_non_income_inflows(categorized_transactions)
     spend_by_bucket = compute_total_spend_by_budget_bucket(categorized_transactions)
-    bucket_targets = {
-        "needs": monthly_budget.needs.frac,
-        "wants": monthly_budget.wants.frac,
-        "savings": monthly_budget.savings.frac,
-    }
+    needs_spend = spend_by_bucket.get("needs", Decimal("0"))
+    wants_spend = spend_by_bucket.get("wants", Decimal("0"))
+    actual_savings = (
+        monthly_income + total_non_income_inflows - needs_spend - wants_spend
+    )
+
     return {
-        bucket: compute_budget_bucket_percentage_comparison(
-            bucket=bucket,
-            target_fraction=target_fraction,
-            actual_spend=spend_by_bucket.get(bucket, Decimal("0")),
+        "needs": compute_budget_bucket_percentage_comparison(
+            bucket="needs",
+            target_fraction=monthly_budget.needs.frac,
+            actual_spend=needs_spend,
             monthly_income=monthly_income,
-        )
-        for bucket, target_fraction in bucket_targets.items()
+        ),
+        "wants": compute_budget_bucket_percentage_comparison(
+            bucket="wants",
+            target_fraction=monthly_budget.wants.frac,
+            actual_spend=wants_spend,
+            monthly_income=monthly_income,
+        ),
+        "savings": compute_budget_bucket_percentage_comparison(
+            bucket="savings",
+            target_fraction=monthly_budget.savings.frac,
+            actual_spend=actual_savings,
+            monthly_income=monthly_income,
+        ),
     }
 
 
@@ -224,7 +237,7 @@ def format_monthly_budget_summary(
         lines.extend(
             format_budget_bucket_summary_section(
                 comparison,
-                spend_by_category.get(bucket, {}),
+                spend_by_category.get(bucket, {}) if bucket != "savings" else {},
             )
         )
 
@@ -306,7 +319,8 @@ def format_budget_bucket_summary_section(
         f"{format_category_label(comparison.bucket)[:-1] if format_category_label(comparison.bucket).endswith('s') else format_category_label(comparison.bucket)} Statistics"
     )
     summary_table.add_row(["Target", format_currency(target_amount)])
-    summary_table.add_row(["Total", format_currency(comparison.actual_spend)])
+    total_label = "Total + Inflows" if comparison.bucket == "savings" else "Total"
+    summary_table.add_row([total_label, format_currency(comparison.actual_spend)])
     summary_table.add_row(
         ["Target percent", format_percentage(comparison.target_fraction)]
     )

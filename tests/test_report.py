@@ -130,10 +130,12 @@ class ReportTests(unittest.TestCase):
         self.assertTrue(any("Groceries" in line and "$400.00" in line for line in summary_lines))
         self.assertTrue(any("Groceries" in line and "40.0%" in line for line in summary_lines))
         self.assertTrue(any("Movies" in line and "$250.00" in line for line in summary_lines))
-        self.assertTrue(any("Savings" in line and "$100.00" in line for line in summary_lines))
+        self.assertFalse(any("Savings" in line and "$100.00" in line for line in summary_lines))
         self.assertTrue(any("Target" in line and "$500.00" in line for line in summary_lines))
         self.assertTrue(any("Target percent" in line and "50.0%" in line for line in summary_lines))
         self.assertTrue(any("Percent of income" in line and "40.0%" in line for line in summary_lines))
+        self.assertTrue(any("Total + Inflows" in line and "$350.00" in line for line in summary_lines))
+        self.assertTrue(any("Percent of income" in line and "35.0%" in line for line in summary_lines))
         self.assertEqual(summary_lines[-1], "Uncategorized spend: $25.00")
 
     def test_format_monthly_budget_summary_can_include_uncategorized_transactions(
@@ -334,8 +336,8 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(comparisons["needs"].difference_fraction, Decimal("-0.1"))
         self.assertEqual(comparisons["wants"].actual_fraction, Decimal("0.25"))
         self.assertEqual(comparisons["wants"].difference_fraction, Decimal("-0.05"))
-        self.assertEqual(comparisons["savings"].actual_fraction, Decimal("0.1"))
-        self.assertEqual(comparisons["savings"].difference_fraction, Decimal("-0.1"))
+        self.assertEqual(comparisons["savings"].actual_fraction, Decimal("0.35"))
+        self.assertEqual(comparisons["savings"].difference_fraction, Decimal("0.15"))
 
     def test_compute_budget_target_vs_actual_percentages_handles_zero_income_month(
         self,
@@ -537,6 +539,151 @@ class ReportTests(unittest.TestCase):
             compute_total_non_income_inflows(categorized_transactions),
             Decimal("375.00"),
         )
+
+    def test_savings_can_go_negative_when_needs_and_wants_exceed_income(self) -> None:
+        categorized_transactions = [
+            CategorizedTransaction(
+                transaction=Transaction(
+                    account="debit_demo",
+                    source_file=Path("data/raw/debit_demo/2026/march.csv"),
+                    posting_date="03/01/2026",
+                    description="PAYROLL",
+                    amount=Decimal("1000.00"),
+                    source_metadata={},
+                ),
+                bucket="income",
+                category="paycheck",
+                matched_rule_id="paycheck_income",
+                matched_rule=None,
+                matched_on=(),
+            ),
+            CategorizedTransaction(
+                transaction=Transaction(
+                    account="debit_demo",
+                    source_file=Path("data/raw/debit_demo/2026/march.csv"),
+                    posting_date="03/03/2026",
+                    description="Groceries",
+                    amount=Decimal("-700.00"),
+                    source_metadata={},
+                ),
+                bucket="needs",
+                category="groceries",
+                matched_rule_id="groceries",
+                matched_rule=None,
+                matched_on=(),
+            ),
+            CategorizedTransaction(
+                transaction=Transaction(
+                    account="credit_demo",
+                    source_file=Path("data/raw/credit_demo/2026/march.csv"),
+                    posting_date="03/05/2026",
+                    description="Movie",
+                    amount=Decimal("-500.00"),
+                    source_metadata={},
+                ),
+                bucket="wants",
+                category="movies",
+                matched_rule_id="movies",
+                matched_rule=None,
+                matched_on=(),
+            ),
+        ]
+        monthly_budget = MonthlyBudgetConfig(
+            needs=BudgetBucketConfig(frac=0.5, categories=("groceries",)),
+            wants=BudgetBucketConfig(frac=0.3, categories=("movies",)),
+            savings=BudgetBucketConfig(frac=0.2, categories=("savings",)),
+        )
+
+        comparisons = compute_budget_target_vs_actual_percentages(
+            categorized_transactions,
+            monthly_budget,
+        )
+
+        self.assertEqual(comparisons["savings"].actual_spend, Decimal("-200.00"))
+        self.assertEqual(comparisons["savings"].actual_fraction, Decimal("-0.2"))
+        self.assertEqual(comparisons["savings"].difference_fraction, Decimal("-0.4"))
+
+    def test_savings_includes_non_income_inflows(self) -> None:
+        categorized_transactions = [
+            CategorizedTransaction(
+                transaction=Transaction(
+                    account="debit_demo",
+                    source_file=Path("data/raw/debit_demo/2026/april.csv"),
+                    posting_date="04/10/2026",
+                    description="PAYROLL",
+                    amount=Decimal("1000.00"),
+                    source_metadata={"details": "CREDIT", "transaction_type": "ACH"},
+                ),
+                bucket="income",
+                category="paycheck",
+                counts_toward_income=True,
+                matched_rule_id="paycheck_income",
+                matched_rule=None,
+                matched_on=(),
+            ),
+            CategorizedTransaction(
+                transaction=Transaction(
+                    account="venmo",
+                    source_file=Path("data/raw/venmo/2026/april.csv"),
+                    posting_date="2026-04-10",
+                    description="Breakfast",
+                    amount=Decimal("125.00"),
+                    source_metadata={
+                        "details": "Complete",
+                        "transaction_type": "Payment",
+                    },
+                ),
+                bucket="wants",
+                category="social",
+                counts_toward_income=False,
+                matched_rule_id="venmo_social",
+                matched_rule=None,
+                matched_on=(),
+            ),
+            CategorizedTransaction(
+                transaction=Transaction(
+                    account="debit_demo",
+                    source_file=Path("data/raw/debit_demo/2026/april.csv"),
+                    posting_date="04/03/2026",
+                    description="Groceries",
+                    amount=Decimal("-400.00"),
+                    source_metadata={},
+                ),
+                bucket="needs",
+                category="groceries",
+                matched_rule_id="groceries",
+                matched_rule=None,
+                matched_on=(),
+            ),
+            CategorizedTransaction(
+                transaction=Transaction(
+                    account="credit_demo",
+                    source_file=Path("data/raw/credit_demo/2026/april.csv"),
+                    posting_date="04/05/2026",
+                    description="Movie",
+                    amount=Decimal("-250.00"),
+                    source_metadata={},
+                ),
+                bucket="wants",
+                category="movies",
+                matched_rule_id="movies",
+                matched_rule=None,
+                matched_on=(),
+            ),
+        ]
+        monthly_budget = MonthlyBudgetConfig(
+            needs=BudgetBucketConfig(frac=0.5, categories=("groceries",)),
+            wants=BudgetBucketConfig(frac=0.3, categories=("movies", "social")),
+            savings=BudgetBucketConfig(frac=0.2, categories=("savings",)),
+        )
+
+        comparisons = compute_budget_target_vs_actual_percentages(
+            categorized_transactions,
+            monthly_budget,
+        )
+
+        self.assertEqual(comparisons["savings"].actual_spend, Decimal("475.00"))
+        self.assertEqual(comparisons["savings"].actual_fraction, Decimal("0.475"))
 
     def test_compute_total_spend_by_budget_bucket_groups_negative_amounts(self) -> None:
         categorized_transactions = [
