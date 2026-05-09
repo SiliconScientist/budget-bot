@@ -9,10 +9,16 @@ except ModuleNotFoundError:  # pragma: no cover - Python < 3.11 fallback
 
 
 @dataclass(frozen=True)
+class MonthlyBudgetConfig:
+    month: str = "february"
+
+
+@dataclass(frozen=True)
 class Config:
     seed: Optional[int] = None
     message: str = "Hello from budget-bot!"
     raw_data_dir: Path = Path("data/raw")
+    monthly_budget: MonthlyBudgetConfig = MonthlyBudgetConfig()
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -28,4 +34,7 @@ def get_config() -> Config:
         cfg_data["raw_data_dir"] = Path(cfg_data["raw_data_dir"])
         if not cfg_data["raw_data_dir"].is_absolute():
             cfg_data["raw_data_dir"] = ROOT_DIR / cfg_data["raw_data_dir"]
+    cfg_data["monthly_budget"] = MonthlyBudgetConfig(
+        **cfg_data.get("monthly_budget", {})
+    )
     return Config(**cfg_data)
