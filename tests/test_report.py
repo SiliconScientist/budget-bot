@@ -7,12 +7,16 @@ from decimal import Decimal
 from pathlib import Path
 
 from bb.category import CategorizedTransaction, CategoryRule, UNCATEGORIZED_CATEGORY
-from bb.report import print_categorization_report, print_income_report
+from bb.format import format_currency
+from bb.report import format_reporting_month, print_categorization_report
 from bb.transaction import Transaction
 
 
 class ReportTests(unittest.TestCase):
-    def test_income_report_header_shows_active_month_filter(self) -> None:
+    def test_format_reporting_month_shows_active_month_filter(self) -> None:
+        self.assertEqual(format_reporting_month(2026, "february"), "2026-02")
+
+    def test_income_summary_header_can_be_built_from_generic_helpers(self) -> None:
         income_transactions = [
             Transaction(
                 account="debit_demo",
@@ -24,12 +28,13 @@ class ReportTests(unittest.TestCase):
             )
         ]
 
-        output = io.StringIO()
-        with redirect_stdout(output):
-            print_income_report(2026, "february", income_transactions)
+        total_income = sum((tx.amount for tx in income_transactions), start=Decimal("0"))
+        header = (
+            f"Income for {format_reporting_month(2026, 'february')}: "
+            f"{format_currency(total_income)}"
+        )
 
-        lines = output.getvalue().splitlines()
-        self.assertEqual(lines[0], "Income for 2026-02: $500.00")
+        self.assertEqual(header, "Income for 2026-02: $500.00")
 
     def test_categorization_report_prints_category_and_rule_id(self) -> None:
         categorized_transactions = [

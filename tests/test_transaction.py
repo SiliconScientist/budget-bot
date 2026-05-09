@@ -7,7 +7,12 @@ from decimal import Decimal
 from pathlib import Path
 
 from bb.config import MonthlyBudgetConfig
-from bb.transaction import load_income_transactions
+from bb.parse import UnsupportedStatementSource
+from bb.transaction import (
+    filter_transactions_by_month,
+    load_all_transactions,
+    load_transactions,
+)
 
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -29,10 +34,56 @@ def load_configured_monthly_income_transactions(
     raw_data_dir: Path,
     monthly_budget: MonthlyBudgetConfig,
 ) -> list:
-    return load_income_transactions(raw_data_dir, monthly_budget)
+    transactions = load_all_transactions(raw_data_dir)
+    monthly_transactions = filter_transactions_by_month(
+        transactions,
+        monthly_budget.year,
+        monthly_budget.month,
+    )
+    return [tx for tx in monthly_transactions if tx.is_income]
 
 
-class MonthlyIncomeTests(unittest.TestCase):
+class TransactionTests(unittest.TestCase):
+    def test_chase_debit_and_credit_fixtures_can_coexist(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            raw_data_dir = Path(tmpdir)
+            debit_dir = raw_data_dir / "debit_demo"
+            credit_dir = raw_data_dir / "credit_demo"
+            debit_dir.mkdir()
+            credit_dir.mkdir()
+
+            shutil.copy(FIXTURES_DIR / "chase_debit.csv", debit_dir / "statement.csv")
+            shutil.copy(FIXTURES_DIR / "chase_credit.csv", credit_dir / "statement.csv")
+
+            debit_transactions = load_transactions(debit_dir)
+            credit_transactions = load_transactions(credit_dir)
+
+        self.assertEqual(len(debit_transactions), 2)
+        self.assertEqual(len(credit_transactions), 3)
+        self.assertEqual(debit_transactions[0].account, "debit_demo")
+        self.assertEqual(credit_transactions[0].account, "credit_demo")
+
+    def test_nested_statement_files_are_loaded(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            account_dir = Path(tmpdir) / "debit_demo"
+            year_dir = account_dir / "2026"
+            year_dir.mkdir(parents=True)
+            shutil.copy(FIXTURES_DIR / "chase_debit.csv", year_dir / "march.csv")
+
+            transactions = load_transactions(account_dir)
+
+        self.assertEqual(len(transactions), 2)
+        self.assertEqual(transactions[0].source_file.name, "march.csv")
+
+    def test_mismatched_directory_and_fixture_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            account_dir = Path(tmpdir) / "venmo"
+            account_dir.mkdir()
+            shutil.copy(FIXTURES_DIR / "chase_debit.csv", account_dir / "statement.csv")
+
+            with self.assertRaises(UnsupportedStatementSource):
+                load_transactions(account_dir)
+
     def test_monthly_budget_month_matches_one_month(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             raw_data_dir = Path(tmpdir) / "raw"
@@ -89,8 +140,11 @@ class MonthlyIncomeTests(unittest.TestCase):
             all(tx.posting_date.startswith("02/") for tx in income_transactions)
         )
         self.assertTrue(
-            all(tx.description != "EXAMPLE EMPLOYER PAYROLL"
-                for tx in income_transactions)
+            all(
+                tx.description
+                != "EXAMPLE EMPLOYER PAYROLL"
+                for tx in income_transactions
+            )
         )
 
     def test_monthly_budget_month_handles_mixed_source_income(self) -> None:

@@ -1,38 +1,44 @@
 from __future__ import annotations
 
-import shutil
 import tempfile
 import unittest
 from decimal import Decimal
 from pathlib import Path
 
-from bb.transaction import (
+from bb.parse import (
     UnsupportedStatementSource,
     get_statement_parser,
-    load_transactions,
     parse_chase_credit_rows,
     parse_chase_debit_rows,
     parse_venmo_rows,
 )
 
 
-FIXTURES_DIR = Path(__file__).parent / "fixtures"
-
-
-def load_fixture_transactions(fixture_name: str, account_name: str) -> list:
-    with tempfile.TemporaryDirectory() as tmpdir:
-        account_dir = Path(tmpdir) / account_name
-        account_dir.mkdir()
-        shutil.copy(FIXTURES_DIR / fixture_name, account_dir / "statement.csv")
-        return load_transactions(account_dir)
-
-
-class StatementParserTests(unittest.TestCase):
-    def test_chase_debit_fixture_selects_chase_debit_parser(self) -> None:
+class ParseTests(unittest.TestCase):
+    def test_chase_debit_selects_chase_debit_parser(self) -> None:
         self.assertIs(get_statement_parser("debit_demo"), parse_chase_debit_rows)
 
-    def test_chase_debit_fixture_matches_current_normalized_shape(self) -> None:
-        transactions = load_fixture_transactions("chase_debit.csv", "debit_demo")
+    def test_chase_debit_rows_match_normalized_shape(self) -> None:
+        transactions = parse_chase_debit_rows(
+            "debit_demo",
+            Path("statement.csv"),
+            [
+                {
+                    "Details": "CREDIT",
+                    "Posting Date": "03/21/2026",
+                    "Description": "ACME PAYROLL",
+                    "Amount": "1500.00",
+                    "Type": "ACH_CREDIT",
+                },
+                {
+                    "Details": "DEBIT",
+                    "Posting Date": "03/20/2026",
+                    "Description": "CARD PURCHASE COFFEE",
+                    "Amount": "-15.00",
+                    "Type": "DEBIT_CARD",
+                },
+            ],
+        )
 
         self.assertEqual(len(transactions), 2)
 
@@ -45,6 +51,8 @@ class StatementParserTests(unittest.TestCase):
             income_tx.source_metadata,
             {"details": "CREDIT", "transaction_type": "ACH_CREDIT"},
         )
+        self.assertEqual(income_tx.posting_year, 2026)
+        self.assertEqual(income_tx.posting_month, 3)
 
         debit_tx = transactions[1]
         self.assertEqual(debit_tx.account, "debit_demo")
@@ -55,14 +63,44 @@ class StatementParserTests(unittest.TestCase):
             debit_tx.source_metadata,
             {"details": "DEBIT", "transaction_type": "DEBIT_CARD"},
         )
-        self.assertEqual(income_tx.posting_year, 2026)
-        self.assertEqual(income_tx.posting_month, 3)
 
-    def test_chase_credit_fixture_selects_chase_credit_parser(self) -> None:
+    def test_chase_credit_selects_chase_credit_parser(self) -> None:
         self.assertIs(get_statement_parser("credit_demo"), parse_chase_credit_rows)
 
-    def test_chase_credit_fixture_documents_expected_normalized_fields(self) -> None:
-        transactions = load_fixture_transactions("chase_credit.csv", "credit_demo")
+    def test_chase_credit_rows_match_normalized_shape(self) -> None:
+        transactions = parse_chase_credit_rows(
+            "credit_demo",
+            Path("statement.csv"),
+            [
+                {
+                    "Transaction Date": "03/22/2026",
+                    "Post Date": "03/23/2026",
+                    "Description": "DENTAL OFFICE VISIT",
+                    "Category": "Health & Wellness",
+                    "Type": "Sale",
+                    "Amount": "-90.00",
+                    "Memo": "",
+                },
+                {
+                    "Transaction Date": "03/28/2026",
+                    "Post Date": "03/29/2026",
+                    "Description": "GROCERY STORE",
+                    "Category": "Groceries",
+                    "Type": "Sale",
+                    "Amount": "-22.50",
+                    "Memo": "",
+                },
+                {
+                    "Transaction Date": "03/04/2026",
+                    "Post Date": "03/04/2026",
+                    "Description": "AUTOMATIC PAYMENT - THANK",
+                    "Category": "",
+                    "Type": "Payment",
+                    "Amount": "750.00",
+                    "Memo": "",
+                },
+            ],
+        )
 
         self.assertEqual(len(transactions), 3)
 
@@ -97,11 +135,52 @@ class StatementParserTests(unittest.TestCase):
             },
         )
 
-    def test_venmo_fixture_selects_venmo_parser(self) -> None:
+    def test_venmo_selects_venmo_parser(self) -> None:
         self.assertIs(get_statement_parser("venmo"), parse_venmo_rows)
 
-    def test_venmo_fixture_documents_expected_normalized_fields(self) -> None:
-        transactions = load_fixture_transactions("venmo.csv", "venmo")
+    def test_venmo_rows_match_normalized_shape(self) -> None:
+        transactions = parse_venmo_rows(
+            "venmo",
+            Path("statement.csv"),
+            [
+                {
+                    "ID": "1234567890123456789",
+                    "Datetime": "2026-03-10T09:00:00",
+                    "Type": "Charge",
+                    "Status": "Complete",
+                    "Note": "Coaching session",
+                    "From": "Person Example",
+                    "To": "Sample User",
+                    "Amount (total)": "-20.00",
+                    "Funding Source": "Venmo balance",
+                    "Destination": "",
+                },
+                {
+                    "ID": "2234567890123456789",
+                    "Datetime": "2026-03-11T09:00:00",
+                    "Type": "Payment",
+                    "Status": "Complete",
+                    "Note": "Dinner reimbursement",
+                    "From": "Person Example",
+                    "To": "Sample User",
+                    "Amount (total)": "12.34",
+                    "Funding Source": "Venmo balance",
+                    "Destination": "",
+                },
+                {
+                    "ID": "4234567890123456789",
+                    "Datetime": "2026-03-11T09:00:00",
+                    "Type": "Merchant Transaction",
+                    "Status": "Complete",
+                    "Note": "",
+                    "From": "Sample User",
+                    "To": "Fundraiser Example",
+                    "Amount (total)": "-35.00",
+                    "Funding Source": "Venmo balance",
+                    "Destination": "",
+                },
+            ],
+        )
 
         self.assertEqual(len(transactions), 3)
 
@@ -150,49 +229,9 @@ class StatementParserTests(unittest.TestCase):
             },
         )
 
-    def test_chase_debit_and_credit_fixtures_can_coexist(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            raw_data_dir = Path(tmpdir)
-            debit_dir = raw_data_dir / "debit_demo"
-            credit_dir = raw_data_dir / "credit_demo"
-            debit_dir.mkdir()
-            credit_dir.mkdir()
-
-            shutil.copy(FIXTURES_DIR / "chase_debit.csv", debit_dir / "statement.csv")
-            shutil.copy(FIXTURES_DIR / "chase_credit.csv", credit_dir / "statement.csv")
-
-            debit_transactions = load_transactions(debit_dir)
-            credit_transactions = load_transactions(credit_dir)
-
-        self.assertEqual(len(debit_transactions), 2)
-        self.assertEqual(len(credit_transactions), 3)
-        self.assertEqual(debit_transactions[0].account, "debit_demo")
-        self.assertEqual(credit_transactions[0].account, "credit_demo")
-
-    def test_nested_statement_files_are_loaded(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            account_dir = Path(tmpdir) / "debit_demo"
-            year_dir = account_dir / "2026"
-            year_dir.mkdir(parents=True)
-            shutil.copy(FIXTURES_DIR / "chase_debit.csv", year_dir / "march.csv")
-
-            transactions = load_transactions(account_dir)
-
-        self.assertEqual(len(transactions), 2)
-        self.assertEqual(transactions[0].source_file.name, "march.csv")
-
     def test_unknown_account_source_is_rejected(self) -> None:
         with self.assertRaises(UnsupportedStatementSource):
             get_statement_parser("savings1234")
-
-    def test_mismatched_directory_and_fixture_is_rejected(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            account_dir = Path(tmpdir) / "venmo"
-            account_dir.mkdir()
-            shutil.copy(FIXTURES_DIR / "chase_debit.csv", account_dir / "statement.csv")
-
-            with self.assertRaises(UnsupportedStatementSource):
-                load_transactions(account_dir)
 
     def test_unsupported_posting_date_format_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
