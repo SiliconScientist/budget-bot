@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -14,6 +15,7 @@ from bb.transaction import Transaction
 
 UNCATEGORIZED_CATEGORY = "uncategorized"
 UNCATEGORIZED_BUCKET = "uncategorized"
+SNAKE_CASE_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 
 
 @dataclass(frozen=True)
@@ -78,8 +80,8 @@ def parse_category_rule(
 ) -> CategoryRule:
     return CategoryRule(
         id=require_non_empty_string(rule_data, "id", index),
-        category=require_non_empty_string(rule_data, "category", index),
-        bucket=require_optional_non_empty_string(rule_data, "bucket", index),
+        category=require_snake_case_identifier(rule_data, "category", index),
+        bucket=require_optional_snake_case_identifier(rule_data, "bucket", index),
         accounts=require_string_list(rule_data, "accounts", index),
         description_contains=require_string_list(
             rule_data,
@@ -123,6 +125,34 @@ def require_optional_non_empty_string(
     if not isinstance(value, str) or not value.strip():
         raise CategoryRuleConfigError(
             f"rules[{index}].{field_name} must be a non-empty string"
+        )
+    return value
+
+
+def require_snake_case_identifier(
+    rule_data: Mapping[str, Any],
+    field_name: str,
+    index: int,
+) -> str:
+    value = require_non_empty_string(rule_data, field_name, index)
+    if not SNAKE_CASE_PATTERN.fullmatch(value):
+        raise CategoryRuleConfigError(
+            f"rules[{index}].{field_name} must be snake_case, got {value!r}"
+        )
+    return value
+
+
+def require_optional_snake_case_identifier(
+    rule_data: Mapping[str, Any],
+    field_name: str,
+    index: int,
+) -> str | None:
+    value = require_optional_non_empty_string(rule_data, field_name, index)
+    if value is None:
+        return None
+    if not SNAKE_CASE_PATTERN.fullmatch(value):
+        raise CategoryRuleConfigError(
+            f"rules[{index}].{field_name} must be snake_case, got {value!r}"
         )
     return value
 

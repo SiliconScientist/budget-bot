@@ -100,7 +100,7 @@ class CategorizationFixtureTests(unittest.TestCase):
         self.assertEqual(len(rules), 10)
         self.assertIsInstance(rules[0], CategoryRule)
         self.assertEqual(rules[0].id, "paycheck_income")
-        self.assertEqual(rules[0].category, "income:paycheck")
+        self.assertEqual(rules[0].category, "paycheck")
         self.assertEqual(rules[0].bucket, "income")
         self.assertEqual(rules[0].description_contains, ("PAYROLL",))
         self.assertEqual(rules[0].accounts, ())
@@ -116,12 +116,12 @@ class CategorizationFixtureTests(unittest.TestCase):
         ):
             load_category_rules(config_path)
 
-    def test_invalid_rule_field_type_is_rejected(self) -> None:
+    def test_empty_bucket_is_rejected(self) -> None:
         config_path = write_rules_file(
             (
                 "[[rules]]\n"
                 'id = "coffee"\n'
-                'category = "dining:coffee"\n'
+                'category = "coffee"\n'
                 'bucket = ""\n'
             )
         )
@@ -132,12 +132,43 @@ class CategorizationFixtureTests(unittest.TestCase):
         ):
             load_category_rules(config_path)
 
+    def test_non_snake_case_category_is_rejected(self) -> None:
+        config_path = write_rules_file(
+            (
+                "[[rules]]\n"
+                'id = "coffee"\n'
+                'category = "Dining / Coffee"\n'
+            )
+        )
+
+        with self.assertRaisesRegex(
+            CategoryRuleConfigError,
+            r"rules\[1\]\.category must be snake_case",
+        ):
+            load_category_rules(config_path)
+
+    def test_non_snake_case_bucket_is_rejected(self) -> None:
+        config_path = write_rules_file(
+            (
+                "[[rules]]\n"
+                'id = "coffee"\n'
+                'category = "coffee"\n'
+                'bucket = "Needs Bucket"\n'
+            )
+        )
+
+        with self.assertRaisesRegex(
+            CategoryRuleConfigError,
+            r"rules\[1\]\.bucket must be snake_case",
+        ):
+            load_category_rules(config_path)
+
     def test_invalid_rule_boolean_field_type_is_rejected(self) -> None:
         config_path = write_rules_file(
             (
                 "[[rules]]\n"
                 'id = "coffee"\n'
-                'category = "dining:coffee"\n'
+                'category = "coffee"\n'
                 "credit_card_payment = 1\n"
             )
         )
@@ -211,7 +242,7 @@ class CategorizationFixtureTests(unittest.TestCase):
         categorized_transaction = categorize_transaction(transaction, rules)
 
         self.assertEqual(categorized_transaction.bucket, "wants")
-        self.assertEqual(categorized_transaction.category, "dining:coffee")
+        self.assertEqual(categorized_transaction.category, "coffee")
         self.assertEqual(categorized_transaction.matched_rule_id, "debit_coffee")
         self.assertIsNotNone(categorized_transaction.matched_rule)
         self.assertEqual(categorized_transaction.matched_rule.id, "debit_coffee")
@@ -254,7 +285,7 @@ class CategorizationFixtureTests(unittest.TestCase):
         categorized_transaction = categorize_transaction(coffee_transaction, rules)
 
         self.assertEqual(categorized_transaction.bucket, "wants")
-        self.assertEqual(categorized_transaction.category, "dining:coffee")
+        self.assertEqual(categorized_transaction.category, "coffee")
         self.assertEqual(categorized_transaction.matched_rule_id, "debit_coffee")
 
     def test_overlapping_rules_use_first_match_for_venmo_income(self) -> None:
@@ -268,7 +299,7 @@ class CategorizationFixtureTests(unittest.TestCase):
         categorized_transaction = categorize_transaction(reimbursement_transaction, rules)
 
         self.assertEqual(categorized_transaction.bucket, "income")
-        self.assertEqual(categorized_transaction.category, "income:reimbursement")
+        self.assertEqual(categorized_transaction.category, "reimbursement")
         self.assertEqual(
             categorized_transaction.matched_rule_id,
             "venmo_reimbursement",
@@ -308,7 +339,7 @@ class CategorizationFixtureTests(unittest.TestCase):
 
         self.assertEqual(
             categorized_transaction.category,
-            "transfer:credit-card-payment",
+            "credit_card_payment",
         )
         self.assertEqual(categorized_transaction.matched_rule_id, "credit_card_payment")
         self.assertEqual(
@@ -332,7 +363,7 @@ class CategorizationFixtureTests(unittest.TestCase):
 
         categorized_transaction = categorize_transaction(transaction, rules)
 
-        self.assertEqual(categorized_transaction.category, "transfer:internal")
+        self.assertEqual(categorized_transaction.category, "internal_transfer")
         self.assertEqual(categorized_transaction.matched_rule_id, "internal_transfer")
         self.assertEqual(
             categorized_transaction.matched_on,

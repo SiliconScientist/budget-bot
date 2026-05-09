@@ -8,7 +8,11 @@ from pathlib import Path
 
 from bb.category import CategorizedTransaction, CategoryRule, UNCATEGORIZED_CATEGORY
 from bb.format import format_currency
-from bb.report import format_reporting_month, print_categorization_report
+from bb.report import (
+    format_category_label,
+    format_reporting_month,
+    print_categorization_report,
+)
 from bb.transaction import Transaction
 
 
@@ -51,11 +55,11 @@ class ReportTests(unittest.TestCase):
                     },
                 ),
                 bucket="wants",
-                category="dining:coffee",
+                category="coffee",
                 matched_rule_id="debit_coffee",
                 matched_rule=CategoryRule(
                     id="debit_coffee",
-                    category="dining:coffee",
+                    category="coffee",
                     bucket="wants",
                     accounts=("debit_demo",),
                     description_contains=("COFFEE",),
@@ -90,12 +94,15 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(lines[0], "Categorization report")
         self.assertEqual(
             lines[1],
-            "03/20/2026     -$15.00  debit_demo   dining:coffee                 debit_coffee   CARD PURCHASE COFFEE",
+            "03/20/2026     -$15.00  debit_demo   Coffee                        debit_coffee   CARD PURCHASE COFFEE",
         )
         self.assertEqual(
             lines[2],
-            "2026-03-11     -$35.00  venmo       uncategorized                 -              Merchant Transaction",
+            "2026-03-11     -$35.00  venmo       Uncategorized                 -              Merchant Transaction",
         )
+
+    def test_format_category_label_uses_title_case_display_text(self) -> None:
+        self.assertEqual(format_category_label("tuition_education"), "Tuition Education")
 
 
 if __name__ == "__main__":

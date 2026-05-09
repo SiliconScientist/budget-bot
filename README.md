@@ -201,7 +201,8 @@ Each rule is a TOML table in the top-level `rules` array:
 ```toml
 [[rules]]
 id = "paycheck_income"
-category = "Income"
+bucket = "income"
+category = "paycheck"
 description_contains = ["PAYROLL"]
 is_income = true
 ```
@@ -209,7 +210,11 @@ is_income = true
 Required fields:
 
 - `id`: unique rule identifier
-- `category`: category string to assign when the rule matches
+- `category`: snake_case category id assigned when the rule matches, such as `rent` or `tuition_education`
+
+Optional classification fields:
+
+- `bucket`: snake_case bucket id such as `needs`, `wants`, `savings`, `income`, or `transfers`
 
 Optional match fields:
 
@@ -226,6 +231,9 @@ Optional explicit flow flags:
 - `internal_transfer = true`
 
 All configured fields on a rule must match for that rule to win.
+
+Category and bucket ids are stored as machine-friendly snake_case in config and
+code. User-facing labels should be derived at output time.
 
 ## Precedence
 

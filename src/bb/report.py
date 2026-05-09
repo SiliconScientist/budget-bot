@@ -38,10 +38,11 @@ def print_categorization_report(
     for categorized_transaction in categorized_transactions:
         transaction = categorized_transaction.transaction
         matched_rule_id = categorized_transaction.matched_rule_id or "-"
+        category_label = format_category_label(categorized_transaction.category)
         print(
             f"{transaction.posting_date}  "
             f"{format_signed_currency(transaction.amount):>10}  "
-            f"{transaction.account:<10}  {categorized_transaction.category:<30}"
+            f"{transaction.account:<10}  {category_label:<30}"
             f"{matched_rule_id:<13}  {transaction.description}"
         )
 
@@ -51,3 +52,7 @@ def format_signed_currency(amount: Decimal) -> str:
     if amount < 0:
         return f"-${absolute_amount:,.2f}"
     return f"${absolute_amount:,.2f}"
+
+
+def format_category_label(category: str) -> str:
+    return category.replace("_", " ").title()
