@@ -7,7 +7,10 @@ from bb.transactions import load_income_transactions
 
 def main() -> None:
     cfg = get_config()
-    income_transactions = load_income_transactions(cfg.raw_data_path)
+    income_transactions = load_income_transactions(
+        cfg.raw_data_path,
+        cfg.monthly_budget,
+    )
     print_income_report(income_transactions)
 
 

@@ -1,5 +1,6 @@
 from pathlib import Path
 from dataclasses import dataclass
+from typing import Union
 
 try:
     import tomllib
@@ -10,7 +11,7 @@ except ModuleNotFoundError:  # pragma: no cover - Python < 3.11 fallback
 @dataclass(frozen=True)
 class MonthlyBudgetConfig:
     year: int = 2026
-    month: str = "february"
+    month: Union[str, int] = "february"
 
 
 @dataclass(frozen=True)

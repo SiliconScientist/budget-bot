@@ -7,6 +7,8 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Callable, Iterable, Mapping
 
+from bb.config import MonthlyBudgetConfig
+
 
 @dataclass(frozen=True)
 class Transaction:
@@ -289,8 +291,19 @@ def load_all_transactions(raw_data_dir: Path) -> list[Transaction]:
     return transactions
 
 
-def parse_month_name(month_name: str) -> int:
+def parse_month_name(month_name: str | int) -> int:
+    if isinstance(month_name, int):
+        if 1 <= month_name <= 12:
+            return month_name
+        raise ValueError(f"Unsupported month number: {month_name}")
+
     normalized = month_name.strip().lower()
+    if normalized.isdigit():
+        month_number = int(normalized)
+        if 1 <= month_number <= 12:
+            return month_number
+        raise ValueError(f"Unsupported month number: {month_name}")
+
     try:
         return MONTH_NAME_TO_NUMBER[normalized]
     except KeyError as exc:
@@ -300,7 +313,7 @@ def parse_month_name(month_name: str) -> int:
 def filter_transactions_by_month(
     transactions: Iterable[Transaction],
     year: int,
-    month_name: str,
+    month_name: str | int,
 ) -> list[Transaction]:
     month = parse_month_name(month_name)
     return [
@@ -310,5 +323,14 @@ def filter_transactions_by_month(
     ]
 
 
-def load_income_transactions(raw_data_dir: Path) -> list[Transaction]:
-    return [tx for tx in load_all_transactions(raw_data_dir) if tx.is_income]
+def load_income_transactions(
+    raw_data_dir: Path,
+    monthly_budget: MonthlyBudgetConfig,
+) -> list[Transaction]:
+    transactions = load_all_transactions(raw_data_dir)
+    monthly_transactions = filter_transactions_by_month(
+        transactions,
+        monthly_budget.year,
+        monthly_budget.month,
+    )
+    return [tx for tx in monthly_transactions if tx.is_income]

@@ -7,8 +7,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from bb.config import MonthlyBudgetConfig
-import bb.transactions as transactions_module
-from bb.transactions import load_all_transactions
+from bb.transactions import load_income_transactions
 
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -30,17 +29,7 @@ def load_configured_monthly_income_transactions(
     raw_data_dir: Path,
     monthly_budget: MonthlyBudgetConfig,
 ) -> list:
-    transactions = load_all_transactions(raw_data_dir)
-    filter_transactions_by_month = getattr(
-        transactions_module,
-        "filter_transactions_by_month",
-    )
-    monthly_transactions = filter_transactions_by_month(
-        transactions,
-        monthly_budget.year,
-        monthly_budget.month,
-    )
-    return [tx for tx in monthly_transactions if tx.is_income]
+    return load_income_transactions(raw_data_dir, monthly_budget)
 
 
 class MonthlyIncomeTests(unittest.TestCase):
@@ -162,6 +151,60 @@ class MonthlyIncomeTests(unittest.TestCase):
             )
 
         self.assertEqual(income_transactions, [])
+
+    def test_monthly_budget_month_accepts_integer_month(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            raw_data_dir = Path(tmpdir) / "raw"
+            create_statement(
+                raw_data_dir,
+                "debit_demo",
+                "2026",
+                "february.csv",
+                "chase_debit_february.csv",
+            )
+            create_statement(
+                raw_data_dir,
+                "debit_demo",
+                "2026",
+                "march.csv",
+                "chase_debit.csv",
+            )
+            monthly_budget = MonthlyBudgetConfig(year=2026, month=2)
+
+            income_transactions = load_configured_monthly_income_transactions(
+                raw_data_dir,
+                monthly_budget,
+            )
+
+        self.assertEqual(len(income_transactions), 1)
+        self.assertEqual(income_transactions[0].posting_date, "02/07/2026")
+
+    def test_monthly_budget_month_accepts_numeric_string_month(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            raw_data_dir = Path(tmpdir) / "raw"
+            create_statement(
+                raw_data_dir,
+                "debit_demo",
+                "2026",
+                "february.csv",
+                "chase_debit_february.csv",
+            )
+            create_statement(
+                raw_data_dir,
+                "debit_demo",
+                "2026",
+                "march.csv",
+                "chase_debit.csv",
+            )
+            monthly_budget = MonthlyBudgetConfig(year=2026, month="2")
+
+            income_transactions = load_configured_monthly_income_transactions(
+                raw_data_dir,
+                monthly_budget,
+            )
+
+        self.assertEqual(len(income_transactions), 1)
+        self.assertEqual(income_transactions[0].posting_date, "02/07/2026")
 
 
 if __name__ == "__main__":
