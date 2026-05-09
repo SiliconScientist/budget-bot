@@ -4,7 +4,7 @@ import csv
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
-from typing import Mapping
+from typing import Callable, Iterable, Mapping
 
 
 @dataclass(frozen=True)
@@ -27,26 +27,66 @@ class Transaction:
         return self.amount > 0
 
 
+CsvRow = dict[str, str]
+StatementParser = Callable[[str, Path, Iterable[CsvRow]], list[Transaction]]
+
+
+class UnsupportedStatementFormat(ValueError):
+    pass
+
+
+CHASE_DEBIT_COLUMNS = (
+    "Details",
+    "Posting Date",
+    "Description",
+    "Amount",
+    "Type",
+    "Balance",
+    "Check or Slip #",
+)
+
+
+def parse_chase_debit_rows(
+    account_name: str,
+    source_file: Path,
+    rows: Iterable[CsvRow],
+) -> list[Transaction]:
+    return [
+        Transaction(
+            account=account_name,
+            source_file=source_file,
+            posting_date=row["Posting Date"],
+            description=row["Description"],
+            amount=Decimal(row["Amount"]),
+            source_metadata={
+                "details": row["Details"],
+                "transaction_type": row["Type"],
+            },
+        )
+        for row in rows
+    ]
+
+
+def get_statement_parser(fieldnames: list[str] | None) -> StatementParser:
+    if fieldnames == list(CHASE_DEBIT_COLUMNS):
+        return parse_chase_debit_rows
+
+    raise UnsupportedStatementFormat(f"Unsupported statement columns: {fieldnames}")
+
+
+def read_statement_rows(csv_file: Path) -> tuple[list[str] | None, list[CsvRow]]:
+    with csv_file.open(newline="", encoding="utf-8-sig") as handle:
+        reader = csv.DictReader(handle)
+        return reader.fieldnames, list(reader)
+
+
 def load_transactions(account_dir: Path) -> list[Transaction]:
     transactions: list[Transaction] = []
 
     for csv_file in sorted(account_dir.glob("*.csv")):
-        with csv_file.open(newline="", encoding="utf-8-sig") as handle:
-            reader = csv.DictReader(handle)
-            for row in reader:
-                transactions.append(
-                    Transaction(
-                        account=account_dir.name,
-                        source_file=csv_file,
-                        posting_date=row["Posting Date"],
-                        description=row["Description"],
-                        amount=Decimal(row["Amount"]),
-                        source_metadata={
-                            "details": row["Details"],
-                            "transaction_type": row["Type"],
-                        },
-                    )
-                )
+        fieldnames, rows = read_statement_rows(csv_file)
+        parser = get_statement_parser(fieldnames)
+        transactions.extend(parser(account_dir.name, csv_file, rows))
 
     return transactions
 
