@@ -109,6 +109,10 @@ class ExportTests(unittest.TestCase):
             }
 
             self.assertIn("March 2026", values)
+            self.assertIn("Income", values)
+            self.assertIn("$1,000.00", values)
+            self.assertIn("Other inflows", values)
+            self.assertIn("$0.00", values)
             self.assertIn("Needs", values)
             self.assertIn("Categories", values)
             self.assertIn("$400.00", values)

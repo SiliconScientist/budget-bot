@@ -15,9 +15,17 @@ from bb.format import format_currency
 from bb.report import (
     BudgetBucketPercentageComparison,
     compute_budget_target_vs_actual_percentages,
+    compute_total_monthly_income,
+    compute_total_non_income_inflows,
     compute_total_spend_by_category_within_bucket,
     format_category_label,
 )
+
+EXPORT_START_COLUMN = 2
+EXPORT_STATS_START_COLUMN = 6
+EXPORT_MONTH_TITLE_END_COLUMN = 6
+EXPORT_INCOME_LABEL_COLUMN = 2
+EXPORT_OTHER_INFLOWS_LABEL_COLUMN = 4
 
 
 @dataclass(frozen=True)
@@ -142,39 +150,73 @@ def write_month_section(
     month_label = format_month_heading(monthly_budget.year, monthly_budget.month)
     sections = build_month_sections(categorized_transactions, monthly_budget)
     write_month_heading(worksheet, start_row, month_label)
-    base_row = start_row + 2
+    write_month_financials(worksheet, categorized_transactions, start_row + 1)
+    base_row = start_row + 4
 
     needs_end_row = write_section_tables(
         worksheet,
         sections[0],
         start_row=base_row,
-        category_start_column=1,
-        stats_start_column=5,
+        category_start_column=EXPORT_START_COLUMN,
+        stats_start_column=EXPORT_STATS_START_COLUMN,
     )
     wants_end_row = write_section_tables(
         worksheet,
         sections[1],
         start_row=needs_end_row + 2,
-        category_start_column=1,
-        stats_start_column=5,
+        category_start_column=EXPORT_START_COLUMN,
+        stats_start_column=EXPORT_STATS_START_COLUMN,
     )
     savings_start_row = wants_end_row + 2
     savings_end_row = write_section_tables(
         worksheet,
         sections[2],
         start_row=savings_start_row,
-        category_start_column=1,
-        stats_start_column=5,
+        category_start_column=EXPORT_START_COLUMN,
+        stats_start_column=EXPORT_STATS_START_COLUMN,
     )
 
     return savings_end_row
 
 
 def write_month_heading(worksheet, row: int, month_label: str) -> None:
-    worksheet.merge_cells(start_row=row, start_column=1, end_row=row, end_column=6)
-    cell = worksheet.cell(row=row, column=1, value=month_label)
+    worksheet.merge_cells(
+        start_row=row,
+        start_column=EXPORT_START_COLUMN,
+        end_row=row,
+        end_column=EXPORT_MONTH_TITLE_END_COLUMN,
+    )
+    cell = worksheet.cell(row=row, column=EXPORT_START_COLUMN, value=month_label)
     cell.font = Font(bold=True, size=14)
     cell.alignment = Alignment(horizontal="center")
+
+
+def write_month_financials(
+    worksheet,
+    categorized_transactions: list[CategorizedTransaction],
+    row: int,
+) -> None:
+    income = compute_total_monthly_income(categorized_transactions)
+    other_inflows = compute_total_non_income_inflows(categorized_transactions)
+    entries = [
+        (row, EXPORT_INCOME_LABEL_COLUMN, "Income", format_currency(income)),
+        (
+            row + 1,
+            EXPORT_INCOME_LABEL_COLUMN,
+            "Other inflows",
+            format_currency(other_inflows),
+        ),
+    ]
+    for target_row, start_column, label, value in entries:
+        label_cell = worksheet.cell(row=target_row, column=start_column, value=label)
+        label_cell.font = Font(bold=True)
+        label_cell.alignment = Alignment(horizontal="center")
+        value_cell = worksheet.cell(
+            row=target_row,
+            column=start_column + 1,
+            value=value,
+        )
+        value_cell.alignment = Alignment(horizontal="center")
 
 
 def write_section_tables(
@@ -301,13 +343,8 @@ def write_table(
 
 
 def set_workbook_column_widths(worksheet) -> None:
-    widths = {
-        1: 18,
-        2: 14,
-        3: 12,
-        5: 20,
-        6: 14,
-    }
+    uniform_width = 18
+    widths = {index: uniform_width for index in range(1, 8)}
     for column_index, width in widths.items():
         worksheet.column_dimensions[get_column_letter(column_index)].width = width
 
@@ -330,5 +367,9 @@ def format_month_heading(year: int, month: str | int) -> str:
     if isinstance(month, int):
         month_number = month
     else:
-        month_number = int(month) if str(month).isdigit() else list(calendar.month_name).index(str(month).title())
+        month_number = (
+            int(month)
+            if str(month).isdigit()
+            else list(calendar.month_name).index(str(month).title())
+        )
     return f"{calendar.month_name[month_number]} {year}"
