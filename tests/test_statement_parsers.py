@@ -11,6 +11,7 @@ from bb.transactions import (
     load_transactions,
     parse_chase_credit_rows,
     parse_chase_debit_rows,
+    parse_venmo_rows,
     read_statement_rows,
 )
 
@@ -94,20 +95,63 @@ class StatementParserTests(unittest.TestCase):
             },
         )
 
-    @unittest.expectedFailure
+    def test_venmo_fixture_selects_venmo_parser(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            account_dir = Path(tmpdir) / "venmo"
+            account_dir.mkdir()
+            csv_file = account_dir / "statement.csv"
+            shutil.copy(FIXTURES_DIR / "venmo.csv", csv_file)
+
+            fieldnames, _ = read_statement_rows(csv_file)
+
+        self.assertIs(get_statement_parser(fieldnames), parse_venmo_rows)
+
     def test_venmo_fixture_documents_expected_normalized_fields(self) -> None:
         transactions = load_fixture_transactions("venmo.csv", "venmo")
 
-        self.assertEqual(len(transactions), 1)
+        self.assertEqual(len(transactions), 3)
 
-        tx = transactions[0]
-        self.assertEqual(tx.account, "venmo")
-        self.assertEqual(tx.posting_date, "2026-03-10")
-        self.assertEqual(tx.description, "Coaching session")
-        self.assertEqual(tx.amount, Decimal("-20.00"))
+        outgoing_tx = transactions[0]
+        self.assertEqual(outgoing_tx.account, "venmo")
+        self.assertEqual(outgoing_tx.posting_date, "2026-03-10")
+        self.assertEqual(outgoing_tx.description, "Coaching session")
+        self.assertEqual(outgoing_tx.amount, Decimal("-20.00"))
         self.assertEqual(
-            tx.source_metadata,
-            {"details": "Complete", "transaction_type": "Charge"},
+            outgoing_tx.source_metadata,
+            {
+                "details": "Complete",
+                "transaction_type": "Charge",
+                "venmo_id": "1234567890123456789",
+                "from": "Person Example",
+                "to": "Sample User",
+                "funding_source": "Venmo balance",
+                "destination": "",
+            },
+        )
+
+        incoming_tx = transactions[1]
+        self.assertEqual(incoming_tx.account, "venmo")
+        self.assertEqual(incoming_tx.posting_date, "2026-03-11")
+        self.assertEqual(incoming_tx.description, "Dinner reimbursement")
+        self.assertEqual(incoming_tx.amount, Decimal("12.34"))
+        self.assertTrue(incoming_tx.is_income)
+
+        merchant_tx = transactions[2]
+        self.assertEqual(merchant_tx.account, "venmo")
+        self.assertEqual(merchant_tx.posting_date, "2026-03-11")
+        self.assertEqual(merchant_tx.description, "Merchant Transaction")
+        self.assertEqual(merchant_tx.amount, Decimal("-35.00"))
+        self.assertEqual(
+            merchant_tx.source_metadata,
+            {
+                "details": "Complete",
+                "transaction_type": "Merchant Transaction",
+                "venmo_id": "4234567890123456789",
+                "from": "Sample User",
+                "to": "Fundraiser Example",
+                "funding_source": "Venmo balance",
+                "destination": "",
+            },
         )
 
     def test_chase_debit_and_credit_fixtures_can_coexist(self) -> None:
