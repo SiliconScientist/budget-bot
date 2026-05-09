@@ -71,6 +71,18 @@ class Config:
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
 CONFIG_PATH = ROOT_DIR / "config.toml"
+CATEGORY_CONFIG_PATH = ROOT_DIR / "category.toml"
+CATEGORY_EXAMPLE_CONFIG_PATH = ROOT_DIR / "category.example.toml"
+
+
+def get_category_config_path() -> Path:
+    if CATEGORY_CONFIG_PATH.exists():
+        return CATEGORY_CONFIG_PATH
+    if CATEGORY_EXAMPLE_CONFIG_PATH.exists():
+        return CATEGORY_EXAMPLE_CONFIG_PATH
+    raise FileNotFoundError(
+        "Expected category.toml or category.example.toml at the repo root"
+    )
 
 
 def get_config() -> Config:
