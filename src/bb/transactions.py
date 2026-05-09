@@ -101,6 +101,20 @@ VENMO_COLUMNS = (
 )
 
 VENMO_COMPLETED_STATUS = "Complete"
+MONTH_NAME_TO_NUMBER = {
+    "january": 1,
+    "february": 2,
+    "march": 3,
+    "april": 4,
+    "may": 5,
+    "june": 6,
+    "july": 7,
+    "august": 8,
+    "september": 9,
+    "october": 10,
+    "november": 11,
+    "december": 12,
+}
 
 
 def is_chase_debit_statement(fieldnames: list[str] | None) -> bool:
@@ -273,6 +287,27 @@ def load_all_transactions(raw_data_dir: Path) -> list[Transaction]:
         transactions.extend(load_transactions(account_dir))
 
     return transactions
+
+
+def parse_month_name(month_name: str) -> int:
+    normalized = month_name.strip().lower()
+    try:
+        return MONTH_NAME_TO_NUMBER[normalized]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported month name: {month_name}") from exc
+
+
+def filter_transactions_by_month(
+    transactions: Iterable[Transaction],
+    year: int,
+    month_name: str,
+) -> list[Transaction]:
+    month = parse_month_name(month_name)
+    return [
+        tx
+        for tx in transactions
+        if tx.posting_year == year and tx.posting_month == month
+    ]
 
 
 def load_income_transactions(raw_data_dir: Path) -> list[Transaction]:

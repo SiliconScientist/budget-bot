@@ -44,7 +44,6 @@ def load_configured_monthly_income_transactions(
 
 
 class MonthlyIncomeTests(unittest.TestCase):
-    @unittest.expectedFailure
     def test_monthly_budget_month_matches_one_month(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             raw_data_dir = Path(tmpdir) / "raw"
@@ -73,7 +72,6 @@ class MonthlyIncomeTests(unittest.TestCase):
         self.assertEqual(income_transactions[0].posting_date, "02/07/2026")
         self.assertEqual(income_transactions[0].amount, Decimal("500.00"))
 
-    @unittest.expectedFailure
     def test_monthly_budget_month_excludes_other_months(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             raw_data_dir = Path(tmpdir) / "raw"
@@ -106,7 +104,6 @@ class MonthlyIncomeTests(unittest.TestCase):
                 for tx in income_transactions)
         )
 
-    @unittest.expectedFailure
     def test_monthly_budget_month_handles_mixed_source_income(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             raw_data_dir = Path(tmpdir) / "raw"
@@ -140,7 +137,6 @@ class MonthlyIncomeTests(unittest.TestCase):
             Decimal("1512.34"),
         )
 
-    @unittest.expectedFailure
     def test_monthly_budget_month_handles_no_match(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             raw_data_dir = Path(tmpdir) / "raw"
