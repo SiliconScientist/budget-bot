@@ -46,6 +46,10 @@ CHASE_DEBIT_COLUMNS = (
 )
 
 
+def is_chase_debit_statement(fieldnames: list[str] | None) -> bool:
+    return fieldnames == list(CHASE_DEBIT_COLUMNS)
+
+
 def parse_chase_debit_rows(
     account_name: str,
     source_file: Path,
@@ -68,7 +72,7 @@ def parse_chase_debit_rows(
 
 
 def get_statement_parser(fieldnames: list[str] | None) -> StatementParser:
-    if fieldnames == list(CHASE_DEBIT_COLUMNS):
+    if is_chase_debit_statement(fieldnames):
         return parse_chase_debit_rows
 
     raise UnsupportedStatementFormat(f"Unsupported statement columns: {fieldnames}")

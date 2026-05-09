@@ -6,7 +6,12 @@ import unittest
 from decimal import Decimal
 from pathlib import Path
 
-from bb.transactions import load_transactions
+from bb.transactions import (
+    get_statement_parser,
+    load_transactions,
+    parse_chase_debit_rows,
+    read_statement_rows,
+)
 
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -21,6 +26,17 @@ def load_fixture_transactions(fixture_name: str, account_name: str) -> list:
 
 
 class StatementParserTests(unittest.TestCase):
+    def test_chase_debit_fixture_selects_chase_debit_parser(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            account_dir = Path(tmpdir) / "debit_demo"
+            account_dir.mkdir()
+            csv_file = account_dir / "statement.csv"
+            shutil.copy(FIXTURES_DIR / "chase_debit.csv", csv_file)
+
+            fieldnames, _ = read_statement_rows(csv_file)
+
+        self.assertIs(get_statement_parser(fieldnames), parse_chase_debit_rows)
+
     def test_chase_debit_fixture_matches_current_normalized_shape(self) -> None:
         transactions = load_fixture_transactions("chase_debit.csv", "debit_demo")
 
