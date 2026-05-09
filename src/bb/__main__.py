@@ -11,7 +11,11 @@ def main() -> None:
         cfg.raw_data_path,
         cfg.monthly_budget,
     )
-    print_income_report(income_transactions)
+    print_income_report(
+        cfg.monthly_budget.year,
+        cfg.monthly_budget.month,
+        income_transactions,
+    )
 
 
 if __name__ == "__main__":
