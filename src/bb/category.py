@@ -174,6 +174,13 @@ def categorize_transaction(
     )
 
 
+def categorize_transactions(
+    transactions: Sequence[Transaction],
+    rules: Sequence[CategoryRule],
+) -> list[CategorizedTransaction]:
+    return [categorize_transaction(transaction, rules) for transaction in transactions]
+
+
 def rule_matches_transaction(
     rule: CategoryRule,
     transaction: Transaction,
