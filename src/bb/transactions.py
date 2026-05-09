@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 from dataclasses import dataclass
+from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Callable, Iterable, Mapping
@@ -25,6 +26,23 @@ class Transaction:
     @property
     def is_income(self) -> bool:
         return self.amount > 0
+
+    @property
+    def posting_date_value(self) -> date:
+        for fmt in ("%m/%d/%Y", "%Y-%m-%d"):
+            try:
+                return datetime.strptime(self.posting_date, fmt).date()
+            except ValueError:
+                pass
+        raise ValueError(f"Unsupported posting date format: {self.posting_date}")
+
+    @property
+    def posting_year(self) -> int:
+        return self.posting_date_value.year
+
+    @property
+    def posting_month(self) -> int:
+        return self.posting_date_value.month
 
 
 CsvRow = dict[str, str]

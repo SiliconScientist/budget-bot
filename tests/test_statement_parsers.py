@@ -55,6 +55,8 @@ class StatementParserTests(unittest.TestCase):
             debit_tx.source_metadata,
             {"details": "DEBIT", "transaction_type": "DEBIT_CARD"},
         )
+        self.assertEqual(income_tx.posting_year, 2026)
+        self.assertEqual(income_tx.posting_month, 3)
 
     def test_chase_credit_fixture_selects_chase_credit_parser(self) -> None:
         self.assertIs(get_statement_parser("credit_demo"), parse_chase_credit_rows)
@@ -127,6 +129,8 @@ class StatementParserTests(unittest.TestCase):
         self.assertEqual(incoming_tx.description, "Dinner reimbursement")
         self.assertEqual(incoming_tx.amount, Decimal("12.34"))
         self.assertTrue(incoming_tx.is_income)
+        self.assertEqual(incoming_tx.posting_year, 2026)
+        self.assertEqual(incoming_tx.posting_month, 3)
 
         merchant_tx = transactions[2]
         self.assertEqual(merchant_tx.account, "venmo")
@@ -189,6 +193,25 @@ class StatementParserTests(unittest.TestCase):
 
             with self.assertRaises(UnsupportedStatementSource):
                 load_transactions(account_dir)
+
+    def test_unsupported_posting_date_format_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tx = parse_chase_debit_rows(
+                "debit_demo",
+                Path(tmpdir) / "statement.csv",
+                [
+                    {
+                        "Details": "CREDIT",
+                        "Posting Date": "2026/03/27",
+                        "Description": "ACME PAYROLL",
+                        "Amount": "1500.00",
+                        "Type": "ACH_CREDIT",
+                    }
+                ],
+            )[0]
+
+        with self.assertRaises(ValueError):
+            _ = tx.posting_date_value
 
 
 if __name__ == "__main__":
