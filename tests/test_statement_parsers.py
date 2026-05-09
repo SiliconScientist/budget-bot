@@ -6,7 +6,7 @@ import unittest
 from decimal import Decimal
 from pathlib import Path
 
-from bb.transactions import (
+from bb.transaction import (
     UnsupportedStatementSource,
     get_statement_parser,
     load_transactions,

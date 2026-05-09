@@ -3,7 +3,8 @@ from __future__ import annotations
 from decimal import Decimal
 
 from bb.format import format_currency
-from bb.transactions import Transaction
+from bb.category import CategorizedTransaction
+from bb.transaction import Transaction
 
 
 def format_reporting_month(year: int, month: str | int) -> str:
@@ -45,3 +46,25 @@ def print_income_report(
             f"{tx.posting_date}  {format_currency(tx.amount):>10}  "
             f"{tx.account:<10}  {tx.description}"
         )
+
+
+def print_categorization_report(
+    categorized_transactions: list[CategorizedTransaction],
+) -> None:
+    print("Categorization report")
+    for categorized_transaction in categorized_transactions:
+        transaction = categorized_transaction.transaction
+        matched_rule_id = categorized_transaction.matched_rule_id or "-"
+        print(
+            f"{transaction.posting_date}  "
+            f"{format_signed_currency(transaction.amount):>10}  "
+            f"{transaction.account:<10}  {categorized_transaction.category:<30}"
+            f"{matched_rule_id:<13}  {transaction.description}"
+        )
+
+
+def format_signed_currency(amount: Decimal) -> str:
+    absolute_amount = abs(amount)
+    if amount < 0:
+        return f"-${absolute_amount:,.2f}"
+    return f"${absolute_amount:,.2f}"

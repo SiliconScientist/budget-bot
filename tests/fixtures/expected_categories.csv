@@ -1,0 +1,9 @@
+account,posting_date,description,amount,expected_category,expected_rule_id
+debit_demo,03/21/2026,ACME PAYROLL,1500.00,income:paycheck,paycheck_income
+debit_demo,03/20/2026,CARD PURCHASE COFFEE,-15.00,dining:coffee,debit_coffee
+credit_demo,03/23/2026,DENTAL OFFICE VISIT,-90.00,health:dental,credit_health
+credit_demo,03/19/2026,SOFTWARE SUBSCRIPTION,-10.00,software:subscription,software_subscription
+credit_demo,03/04/2026,AUTOMATIC PAYMENT - THANK,-750.00,transfer:credit-card-payment,credit_card_payment
+venmo,2026-03-10,Coaching session,-20.00,business:coaching,venmo_coaching
+venmo,2026-03-11,Dinner reimbursement,12.34,income:reimbursement,venmo_reimbursement
+venmo,2026-03-11,Merchant Transaction,-35.00,uncategorized,
