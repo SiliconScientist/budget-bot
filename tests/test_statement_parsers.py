@@ -7,12 +7,12 @@ from decimal import Decimal
 from pathlib import Path
 
 from bb.transactions import (
+    UnsupportedStatementSource,
     get_statement_parser,
     load_transactions,
     parse_chase_credit_rows,
     parse_chase_debit_rows,
     parse_venmo_rows,
-    read_statement_rows,
 )
 
 
@@ -29,15 +29,7 @@ def load_fixture_transactions(fixture_name: str, account_name: str) -> list:
 
 class StatementParserTests(unittest.TestCase):
     def test_chase_debit_fixture_selects_chase_debit_parser(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            account_dir = Path(tmpdir) / "debit_demo"
-            account_dir.mkdir()
-            csv_file = account_dir / "statement.csv"
-            shutil.copy(FIXTURES_DIR / "chase_debit.csv", csv_file)
-
-            fieldnames, _ = read_statement_rows(csv_file)
-
-        self.assertIs(get_statement_parser(fieldnames), parse_chase_debit_rows)
+        self.assertIs(get_statement_parser("debit_demo"), parse_chase_debit_rows)
 
     def test_chase_debit_fixture_matches_current_normalized_shape(self) -> None:
         transactions = load_fixture_transactions("chase_debit.csv", "debit_demo")
@@ -65,15 +57,7 @@ class StatementParserTests(unittest.TestCase):
         )
 
     def test_chase_credit_fixture_selects_chase_credit_parser(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            account_dir = Path(tmpdir) / "credit_demo"
-            account_dir.mkdir()
-            csv_file = account_dir / "statement.csv"
-            shutil.copy(FIXTURES_DIR / "chase_credit.csv", csv_file)
-
-            fieldnames, _ = read_statement_rows(csv_file)
-
-        self.assertIs(get_statement_parser(fieldnames), parse_chase_credit_rows)
+        self.assertIs(get_statement_parser("credit_demo"), parse_chase_credit_rows)
 
     def test_chase_credit_fixture_documents_expected_normalized_fields(self) -> None:
         transactions = load_fixture_transactions("chase_credit.csv", "credit_demo")
@@ -96,15 +80,7 @@ class StatementParserTests(unittest.TestCase):
         )
 
     def test_venmo_fixture_selects_venmo_parser(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            account_dir = Path(tmpdir) / "venmo"
-            account_dir.mkdir()
-            csv_file = account_dir / "statement.csv"
-            shutil.copy(FIXTURES_DIR / "venmo.csv", csv_file)
-
-            fieldnames, _ = read_statement_rows(csv_file)
-
-        self.assertIs(get_statement_parser(fieldnames), parse_venmo_rows)
+        self.assertIs(get_statement_parser("venmo"), parse_venmo_rows)
 
     def test_venmo_fixture_documents_expected_normalized_fields(self) -> None:
         transactions = load_fixture_transactions("venmo.csv", "venmo")
@@ -172,6 +148,19 @@ class StatementParserTests(unittest.TestCase):
         self.assertEqual(len(credit_transactions), 2)
         self.assertEqual(debit_transactions[0].account, "debit_demo")
         self.assertEqual(credit_transactions[0].account, "credit_demo")
+
+    def test_unknown_account_source_is_rejected(self) -> None:
+        with self.assertRaises(UnsupportedStatementSource):
+            get_statement_parser("savings1234")
+
+    def test_mismatched_directory_and_fixture_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            account_dir = Path(tmpdir) / "venmo"
+            account_dir.mkdir()
+            shutil.copy(FIXTURES_DIR / "chase_debit.csv", account_dir / "statement.csv")
+
+            with self.assertRaises(UnsupportedStatementSource):
+                load_transactions(account_dir)
 
 
 if __name__ == "__main__":

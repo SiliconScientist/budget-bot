@@ -31,7 +31,7 @@ CsvRow = dict[str, str]
 StatementParser = Callable[[str, Path, Iterable[CsvRow]], list[Transaction]]
 
 
-class UnsupportedStatementFormat(ValueError):
+class UnsupportedStatementSource(ValueError):
     pass
 
 
@@ -178,32 +178,38 @@ def parse_venmo_rows(
     return transactions
 
 
-def get_statement_parser(fieldnames: list[str] | None) -> StatementParser:
-    if is_chase_debit_statement(fieldnames):
+def get_statement_parser(account_name: str) -> StatementParser:
+    if account_name.startswith("debit"):
         return parse_chase_debit_rows
-    if is_chase_credit_statement(fieldnames):
+    if account_name.startswith("credit"):
         return parse_chase_credit_rows
-    if is_venmo_statement(fieldnames):
+    if account_name == "venmo":
         return parse_venmo_rows
 
-    raise UnsupportedStatementFormat(f"Unsupported statement columns: {fieldnames}")
+    raise UnsupportedStatementSource(f"Unsupported statement source: {account_name}")
 
 
-def is_supported_statement_header(row: list[str]) -> bool:
-    return row in (
-        list(CHASE_DEBIT_COLUMNS),
-        list(CHASE_CREDIT_COLUMNS),
-        list(VENMO_COLUMNS),
-    )
+def get_expected_columns(account_name: str) -> list[str]:
+    if account_name.startswith("debit"):
+        return list(CHASE_DEBIT_COLUMNS)
+    if account_name.startswith("credit"):
+        return list(CHASE_CREDIT_COLUMNS)
+    if account_name == "venmo":
+        return list(VENMO_COLUMNS)
+
+    raise UnsupportedStatementSource(f"Unsupported statement source: {account_name}")
 
 
-def read_statement_rows(csv_file: Path) -> tuple[list[str] | None, list[CsvRow]]:
+def read_statement_rows(
+    csv_file: Path,
+    expected_columns: list[str],
+) -> tuple[list[str] | None, list[CsvRow]]:
     with csv_file.open(newline="", encoding="utf-8-sig") as handle:
         lines = handle.readlines()
 
     header_row_index = 0
     for index, row in enumerate(csv.reader(lines)):
-        if is_supported_statement_header(row):
+        if row == expected_columns:
             header_row_index = index
             break
 
@@ -211,12 +217,25 @@ def read_statement_rows(csv_file: Path) -> tuple[list[str] | None, list[CsvRow]]
     return reader.fieldnames, list(reader)
 
 
+def validate_statement_columns(
+    account_name: str,
+    fieldnames: list[str] | None,
+) -> None:
+    expected_columns = get_expected_columns(account_name)
+    if fieldnames != expected_columns:
+        raise UnsupportedStatementSource(
+            f"{account_name} expected columns {expected_columns}, got {fieldnames}"
+        )
+
+
 def load_transactions(account_dir: Path) -> list[Transaction]:
     transactions: list[Transaction] = []
+    parser = get_statement_parser(account_dir.name)
+    expected_columns = get_expected_columns(account_dir.name)
 
     for csv_file in sorted(account_dir.glob("*.csv")):
-        fieldnames, rows = read_statement_rows(csv_file)
-        parser = get_statement_parser(fieldnames)
+        fieldnames, rows = read_statement_rows(csv_file, expected_columns)
+        validate_statement_columns(account_dir.name, fieldnames)
         transactions.extend(parser(account_dir.name, csv_file, rows))
 
     return transactions
