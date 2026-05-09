@@ -17,6 +17,7 @@ from bb.category import (
     categorize_transaction,
     load_category_rules,
 )
+from bb.config import MonthlyBudgetConfig
 from bb.transaction import Transaction, load_transactions
 
 
@@ -28,6 +29,7 @@ STATEMENT_FIXTURES = (
     ("credit_demo", "chase_credit.csv"),
     ("venmo", "venmo.csv"),
 )
+DEFAULT_MONTHLY_BUDGET = MonthlyBudgetConfig()
 
 
 @dataclass(frozen=True)
@@ -95,7 +97,7 @@ def categorized_transaction_key(
 
 class CategorizationFixtureTests(unittest.TestCase):
     def test_load_category_rules_returns_typed_rule_models(self) -> None:
-        rules = load_category_rules(RULES_FIXTURE)
+        rules = load_category_rules(RULES_FIXTURE, DEFAULT_MONTHLY_BUDGET)
 
         self.assertEqual(len(rules), 10)
         self.assertIsInstance(rules[0], CategoryRule)
@@ -114,7 +116,7 @@ class CategorizationFixtureTests(unittest.TestCase):
             CategoryRuleConfigError,
             r"top-level 'rules' array",
         ):
-            load_category_rules(config_path)
+            load_category_rules(config_path, DEFAULT_MONTHLY_BUDGET)
 
     def test_empty_bucket_is_rejected(self) -> None:
         config_path = write_rules_file(
@@ -130,7 +132,7 @@ class CategorizationFixtureTests(unittest.TestCase):
             CategoryRuleConfigError,
             r"rules\[1\]\.bucket must be a non-empty string",
         ):
-            load_category_rules(config_path)
+            load_category_rules(config_path, DEFAULT_MONTHLY_BUDGET)
 
     def test_non_snake_case_category_is_rejected(self) -> None:
         config_path = write_rules_file(
@@ -145,7 +147,7 @@ class CategorizationFixtureTests(unittest.TestCase):
             CategoryRuleConfigError,
             r"rules\[1\]\.category must be snake_case",
         ):
-            load_category_rules(config_path)
+            load_category_rules(config_path, DEFAULT_MONTHLY_BUDGET)
 
     def test_non_snake_case_bucket_is_rejected(self) -> None:
         config_path = write_rules_file(
@@ -161,7 +163,55 @@ class CategorizationFixtureTests(unittest.TestCase):
             CategoryRuleConfigError,
             r"rules\[1\]\.bucket must be snake_case",
         ):
-            load_category_rules(config_path)
+            load_category_rules(config_path, DEFAULT_MONTHLY_BUDGET)
+
+    def test_valid_budget_bucket_category_combination_is_accepted(self) -> None:
+        config_path = write_rules_file(
+            (
+                "[[rules]]\n"
+                'id = "rent"\n'
+                'category = "rent"\n'
+                'bucket = "needs"\n'
+            )
+        )
+
+        rules = load_category_rules(config_path, DEFAULT_MONTHLY_BUDGET)
+
+        self.assertEqual(len(rules), 1)
+        self.assertEqual(rules[0].category, "rent")
+        self.assertEqual(rules[0].bucket, "needs")
+
+    def test_invalid_budget_bucket_category_combination_is_rejected(self) -> None:
+        config_path = write_rules_file(
+            (
+                "[[rules]]\n"
+                'id = "rent"\n'
+                'category = "rent"\n'
+                'bucket = "wants"\n'
+            )
+        )
+
+        with self.assertRaisesRegex(
+            CategoryRuleConfigError,
+            r"rules\[1\] budget category 'rent' must use bucket 'needs'",
+        ):
+            load_category_rules(config_path, DEFAULT_MONTHLY_BUDGET)
+
+    def test_unknown_category_for_budget_bucket_is_rejected(self) -> None:
+        config_path = write_rules_file(
+            (
+                "[[rules]]\n"
+                'id = "coffee"\n'
+                'category = "coffee"\n'
+                'bucket = "wants"\n'
+            )
+        )
+
+        with self.assertRaisesRegex(
+            CategoryRuleConfigError,
+            r"rules\[1\] budget bucket 'wants' only allows categories:",
+        ):
+            load_category_rules(config_path, DEFAULT_MONTHLY_BUDGET)
 
     def test_invalid_rule_boolean_field_type_is_rejected(self) -> None:
         config_path = write_rules_file(
@@ -177,7 +227,7 @@ class CategorizationFixtureTests(unittest.TestCase):
             CategoryRuleConfigError,
             r"rules\[1\]\.credit_card_payment must be a boolean",
         ):
-            load_category_rules(config_path)
+            load_category_rules(config_path, DEFAULT_MONTHLY_BUDGET)
 
     def test_duplicate_rule_ids_are_rejected(self) -> None:
         config_path = write_rules_file(
@@ -196,10 +246,10 @@ class CategorizationFixtureTests(unittest.TestCase):
             CategoryRuleConfigError,
             r"rules\[2\]\.id duplicates 'duplicate'",
         ):
-            load_category_rules(config_path)
+            load_category_rules(config_path, DEFAULT_MONTHLY_BUDGET)
 
     def test_fixture_rules_assign_expected_categories_across_sources(self) -> None:
-        rules = load_category_rules(RULES_FIXTURE)
+        rules = load_category_rules(RULES_FIXTURE, DEFAULT_MONTHLY_BUDGET)
         expected_categories = {
             (
                 row.account,
@@ -224,7 +274,7 @@ class CategorizationFixtureTests(unittest.TestCase):
         self.assertEqual(actual_categories, expected_categories)
 
     def test_categorized_result_carries_original_transaction(self) -> None:
-        rules = load_category_rules(RULES_FIXTURE)
+        rules = load_category_rules(RULES_FIXTURE, DEFAULT_MONTHLY_BUDGET)
         transaction = load_fixture_transactions("chase_credit.csv", "credit_demo")[0]
 
         categorized_transaction = categorize_transaction(transaction, rules)
@@ -232,7 +282,7 @@ class CategorizationFixtureTests(unittest.TestCase):
         self.assertIs(categorized_transaction.transaction, transaction)
 
     def test_categorized_result_carries_bucket_category_and_matched_rule_id(self) -> None:
-        rules = load_category_rules(RULES_FIXTURE)
+        rules = load_category_rules(RULES_FIXTURE, DEFAULT_MONTHLY_BUDGET)
         transaction = next(
             tx
             for tx in load_fixture_transactions("chase_debit.csv", "debit_demo")
@@ -242,7 +292,7 @@ class CategorizationFixtureTests(unittest.TestCase):
         categorized_transaction = categorize_transaction(transaction, rules)
 
         self.assertEqual(categorized_transaction.bucket, "wants")
-        self.assertEqual(categorized_transaction.category, "coffee")
+        self.assertEqual(categorized_transaction.category, "restaurants")
         self.assertEqual(categorized_transaction.matched_rule_id, "debit_coffee")
         self.assertIsNotNone(categorized_transaction.matched_rule)
         self.assertEqual(categorized_transaction.matched_rule.id, "debit_coffee")
@@ -253,7 +303,7 @@ class CategorizationFixtureTests(unittest.TestCase):
         )
 
     def test_categorized_result_exposes_matched_rule_metadata(self) -> None:
-        rules = load_category_rules(RULES_FIXTURE)
+        rules = load_category_rules(RULES_FIXTURE, DEFAULT_MONTHLY_BUDGET)
         transaction = next(
             tx
             for tx in load_fixture_transactions("chase_credit.csv", "credit_demo")
@@ -265,6 +315,7 @@ class CategorizationFixtureTests(unittest.TestCase):
         self.assertIsNotNone(categorized_transaction.matched_rule)
         self.assertEqual(categorized_transaction.matched_rule.id, "credit_health")
         self.assertEqual(categorized_transaction.bucket, "needs")
+        self.assertEqual(categorized_transaction.category, "pharmacy_medical")
         self.assertEqual(
             categorized_transaction.matched_rule.details,
             ("Health & Wellness",),
@@ -275,7 +326,7 @@ class CategorizationFixtureTests(unittest.TestCase):
         )
 
     def test_overlapping_rules_use_first_match_for_debit_transactions(self) -> None:
-        rules = load_category_rules(RULES_FIXTURE)
+        rules = load_category_rules(RULES_FIXTURE, DEFAULT_MONTHLY_BUDGET)
         coffee_transaction = next(
             tx
             for tx in load_fixture_transactions("chase_debit.csv", "debit_demo")
@@ -285,11 +336,11 @@ class CategorizationFixtureTests(unittest.TestCase):
         categorized_transaction = categorize_transaction(coffee_transaction, rules)
 
         self.assertEqual(categorized_transaction.bucket, "wants")
-        self.assertEqual(categorized_transaction.category, "coffee")
+        self.assertEqual(categorized_transaction.category, "restaurants")
         self.assertEqual(categorized_transaction.matched_rule_id, "debit_coffee")
 
     def test_overlapping_rules_use_first_match_for_venmo_income(self) -> None:
-        rules = load_category_rules(RULES_FIXTURE)
+        rules = load_category_rules(RULES_FIXTURE, DEFAULT_MONTHLY_BUDGET)
         reimbursement_transaction = next(
             tx
             for tx in load_fixture_transactions("venmo.csv", "venmo")
@@ -328,7 +379,7 @@ class CategorizationFixtureTests(unittest.TestCase):
         self.assertEqual(categorized_transaction.category, UNCATEGORIZED_CATEGORY)
 
     def test_credit_card_payment_rule_matches_explicit_flag(self) -> None:
-        rules = load_category_rules(RULES_FIXTURE)
+        rules = load_category_rules(RULES_FIXTURE, DEFAULT_MONTHLY_BUDGET)
         payment_transaction = next(
             tx
             for tx in load_fixture_transactions("chase_credit.csv", "credit_demo")
@@ -348,7 +399,7 @@ class CategorizationFixtureTests(unittest.TestCase):
         )
 
     def test_internal_transfer_rule_matches_explicit_flag(self) -> None:
-        rules = load_category_rules(RULES_FIXTURE)
+        rules = load_category_rules(RULES_FIXTURE, DEFAULT_MONTHLY_BUDGET)
         transaction = Transaction(
             account="debit_demo",
             source_file=Path("data/raw/debit_demo/2026/april.csv"),
@@ -371,7 +422,7 @@ class CategorizationFixtureTests(unittest.TestCase):
         )
 
     def test_unmatched_transactions_return_uncategorized_result(self) -> None:
-        rules = load_category_rules(RULES_FIXTURE)
+        rules = load_category_rules(RULES_FIXTURE, DEFAULT_MONTHLY_BUDGET)
         merchant_transaction = next(
             tx
             for tx in load_fixture_transactions("venmo.csv", "venmo")

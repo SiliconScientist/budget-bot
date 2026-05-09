@@ -3,3 +3,29 @@ raw_data_path = "data/raw"
 [monthly_budget]
 year = 2026
 month = "february"
+
+[monthly_budget.needs]
+frac = 0.5
+categories = [
+    "rent",
+    "groceries",
+    "utilities",
+    "transport",
+    "insurance",
+    "pharmacy_medical",
+    "household",
+]
+
+[monthly_budget.wants]
+frac = 0.3
+categories = [
+    "hobbies",
+    "restaurants",
+    "digital_services",
+    "personal_care",
+    "gifts_donations",
+]
+
+[monthly_budget.savings]
+frac = 0.2
+categories = ["savings"]

@@ -10,6 +10,7 @@ try:
 except ModuleNotFoundError:  # pragma: no cover - Python < 3.11 fallback
     import tomli as tomllib
 
+from bb.config import MonthlyBudgetConfig
 from bb.transaction import Transaction
 
 
@@ -47,7 +48,10 @@ class CategoryRuleConfigError(ValueError):
     pass
 
 
-def load_category_rules(config_path: Path) -> list[CategoryRule]:
+def load_category_rules(
+    config_path: Path,
+    monthly_budget: MonthlyBudgetConfig,
+) -> list[CategoryRule]:
     with config_path.open("rb") as handle:
         config_data = tomllib.load(handle)
 
@@ -65,7 +69,7 @@ def load_category_rules(config_path: Path) -> list[CategoryRule]:
                 f"rules[{index}] must be a table of rule fields"
             )
 
-        rule = parse_category_rule(rule_data, index)
+        rule = parse_category_rule(rule_data, index, monthly_budget)
         if rule.id in seen_rule_ids:
             raise CategoryRuleConfigError(f"rules[{index}].id duplicates {rule.id!r}")
         seen_rule_ids.add(rule.id)
@@ -77,11 +81,19 @@ def load_category_rules(config_path: Path) -> list[CategoryRule]:
 def parse_category_rule(
     rule_data: Mapping[str, Any],
     index: int,
+    monthly_budget: MonthlyBudgetConfig,
 ) -> CategoryRule:
+    category = require_snake_case_identifier(rule_data, "category", index)
+    bucket = require_optional_snake_case_identifier(rule_data, "bucket", index)
+    try:
+        validate_budget_bucket_category(monthly_budget, bucket, category)
+    except ValueError as exc:
+        raise CategoryRuleConfigError(f"rules[{index}] {exc}") from exc
+
     return CategoryRule(
         id=require_non_empty_string(rule_data, "id", index),
-        category=require_snake_case_identifier(rule_data, "category", index),
-        bucket=require_optional_snake_case_identifier(rule_data, "bucket", index),
+        category=category,
+        bucket=bucket,
         accounts=require_string_list(rule_data, "accounts", index),
         description_contains=require_string_list(
             rule_data,
@@ -99,6 +111,36 @@ def parse_category_rule(
         venmo_reimbursement=require_bool(rule_data, "venmo_reimbursement", index),
         internal_transfer=require_bool(rule_data, "internal_transfer", index),
     )
+
+
+def validate_budget_bucket_category(
+    monthly_budget: MonthlyBudgetConfig,
+    bucket: str | None,
+    category: str,
+) -> None:
+    bucket_to_categories = monthly_budget.bucket_to_categories
+    expected_bucket = next(
+        (
+            bucket_name
+            for bucket_name, categories in bucket_to_categories.items()
+            if category in categories
+        ),
+        None,
+    )
+    if expected_bucket is None:
+        if bucket in bucket_to_categories:
+            allowed_categories = ", ".join(sorted(bucket_to_categories[bucket]))
+            raise ValueError(
+                f"budget bucket {bucket!r} only allows categories: {allowed_categories}; "
+                f"got {category!r}"
+            )
+        return
+
+    if bucket != expected_bucket:
+        raise ValueError(
+            f"budget category {category!r} must use bucket {expected_bucket!r}, "
+            f"got {bucket!r}"
+        )
 
 
 def require_non_empty_string(

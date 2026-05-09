@@ -7,21 +7,21 @@ is_income = true
 
 [[rules]]
 id = "debit_coffee"
-category = "coffee"
+category = "restaurants"
 bucket = "wants"
 accounts = ["debit_demo"]
 description_contains = ["COFFEE"]
 
 [[rules]]
 id = "credit_health"
-category = "dental"
+category = "pharmacy_medical"
 bucket = "needs"
 accounts = ["credit_demo"]
 details = ["Health & Wellness"]
 
 [[rules]]
 id = "software_subscription"
-category = "software_subscription"
+category = "digital_services"
 bucket = "wants"
 description_contains = ["SOFTWARE SUBSCRIPTION"]
 
@@ -55,7 +55,7 @@ internal_transfer = true
 
 [[rules]]
 id = "debit_card_general"
-category = "card"
+category = "hobbies"
 bucket = "wants"
 transaction_types = ["DEBIT_CARD"]
 

@@ -31,7 +31,10 @@ def main() -> None:
             f"{tx.account:<10}  {tx.description}"
         )
     print()
-    category_rules = load_category_rules(get_category_config_path())
+    category_rules = load_category_rules(
+        get_category_config_path(),
+        cfg.monthly_budget,
+    )
     print_categorization_report(
         categorize_transactions(all_transactions, category_rules)
     )
