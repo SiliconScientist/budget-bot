@@ -3,7 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from bb.format import format_currency
-from bb.transactions import Transaction
+from bb.transaction import Transaction
 
 
 def format_reporting_month(year: int, month: str | int) -> str:

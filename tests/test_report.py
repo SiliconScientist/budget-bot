@@ -7,7 +7,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from bb.report import print_income_report
-from bb.transactions import Transaction
+from bb.transaction import Transaction
 
 
 class ReportTests(unittest.TestCase):

@@ -89,6 +89,6 @@ Source-specific fields belong in `source_metadata`, not in the top-level model.
 The loader also validates the CSV columns for each directory. If you add a new
 account source, you need to:
 
-1. Add a parser and expected-column definition in `src/bb/transactions.py`.
+1. Add a parser and expected-column definition in `src/bb/transaction.py`.
 2. Teach `get_statement_parser()` and `get_expected_columns()` how to route the new account directory.
 3. Add fixture coverage in `tests/fixtures/` and parser tests in `tests/test_statement_parsers.py`.

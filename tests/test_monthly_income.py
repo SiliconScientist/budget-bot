@@ -7,7 +7,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from bb.config import MonthlyBudgetConfig
-from bb.transactions import load_income_transactions
+from bb.transaction import load_income_transactions
 
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"

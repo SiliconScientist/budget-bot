@@ -8,8 +8,12 @@ from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 
-from bb.categorization import categorize_transaction, load_category_rules
-from bb.transactions import Transaction, load_transactions
+from bb.category import (
+    CategorizedTransaction,
+    categorize_transaction,
+    load_category_rules,
+)
+from bb.transaction import Transaction, load_transactions
 
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -29,6 +33,7 @@ class ExpectedCategory:
     description: str
     amount: Decimal
     expected_category: str | None
+    expected_rule_id: str | None
 
 
 def load_fixture_transactions(fixture_name: str, account_name: str) -> list[Transaction]:
@@ -56,6 +61,7 @@ def load_expected_categories() -> list[ExpectedCategory]:
                 description=row["description"],
                 amount=Decimal(row["amount"]),
                 expected_category=row["expected_category"] or None,
+                expected_rule_id=row["expected_rule_id"] or None,
             )
             for row in reader
         ]
@@ -70,6 +76,12 @@ def transaction_key(transaction: Transaction) -> tuple[str, str, str, Decimal]:
     )
 
 
+def categorized_transaction_key(
+    categorized_transaction: CategorizedTransaction,
+) -> tuple[str, str, str, Decimal]:
+    return transaction_key(categorized_transaction.transaction)
+
+
 class CategorizationFixtureTests(unittest.TestCase):
     def test_fixture_rules_assign_expected_categories_across_sources(self) -> None:
         rules = load_category_rules(RULES_FIXTURE)
@@ -79,16 +91,43 @@ class CategorizationFixtureTests(unittest.TestCase):
                 row.posting_date,
                 row.description,
                 row.amount,
-            ): row.expected_category
+            ): (row.expected_category, row.expected_rule_id)
             for row in load_expected_categories()
         }
 
         actual_categories = {
-            transaction_key(transaction): categorize_transaction(transaction, rules)
-            for transaction in load_all_statement_fixture_transactions()
+            categorized_transaction_key(categorized_transaction): (
+                categorized_transaction.category,
+                categorized_transaction.matched_rule_id,
+            )
+            for categorized_transaction in (
+                categorize_transaction(transaction, rules)
+                for transaction in load_all_statement_fixture_transactions()
+            )
         }
 
         self.assertEqual(actual_categories, expected_categories)
+
+    def test_categorized_result_carries_original_transaction(self) -> None:
+        rules = load_category_rules(RULES_FIXTURE)
+        transaction = load_fixture_transactions("chase_credit.csv", "credit_demo")[0]
+
+        categorized_transaction = categorize_transaction(transaction, rules)
+
+        self.assertIs(categorized_transaction.transaction, transaction)
+
+    def test_categorized_result_carries_category_and_matched_rule_id(self) -> None:
+        rules = load_category_rules(RULES_FIXTURE)
+        transaction = next(
+            tx
+            for tx in load_fixture_transactions("chase_debit.csv", "debit_demo")
+            if tx.description == "CARD PURCHASE COFFEE"
+        )
+
+        categorized_transaction = categorize_transaction(transaction, rules)
+
+        self.assertEqual(categorized_transaction.category, "dining:coffee")
+        self.assertEqual(categorized_transaction.matched_rule_id, "debit_coffee")
 
     def test_overlapping_rules_use_first_match_for_debit_transactions(self) -> None:
         rules = load_category_rules(RULES_FIXTURE)
@@ -98,7 +137,10 @@ class CategorizationFixtureTests(unittest.TestCase):
             if tx.description == "CARD PURCHASE COFFEE"
         )
 
-        self.assertEqual(categorize_transaction(coffee_transaction, rules), "dining:coffee")
+        categorized_transaction = categorize_transaction(coffee_transaction, rules)
+
+        self.assertEqual(categorized_transaction.category, "dining:coffee")
+        self.assertEqual(categorized_transaction.matched_rule_id, "debit_coffee")
 
     def test_overlapping_rules_use_first_match_for_venmo_income(self) -> None:
         rules = load_category_rules(RULES_FIXTURE)
@@ -108,12 +150,15 @@ class CategorizationFixtureTests(unittest.TestCase):
             if tx.description == "Dinner reimbursement"
         )
 
+        categorized_transaction = categorize_transaction(reimbursement_transaction, rules)
+
+        self.assertEqual(categorized_transaction.category, "income:reimbursement")
         self.assertEqual(
-            categorize_transaction(reimbursement_transaction, rules),
-            "income:reimbursement",
+            categorized_transaction.matched_rule_id,
+            "venmo_reimbursement",
         )
 
-    def test_unmatched_transactions_return_none(self) -> None:
+    def test_unmatched_transactions_return_empty_category_result(self) -> None:
         rules = load_category_rules(RULES_FIXTURE)
         merchant_transaction = next(
             tx
@@ -121,7 +166,11 @@ class CategorizationFixtureTests(unittest.TestCase):
             if tx.description == "Merchant Transaction"
         )
 
-        self.assertIsNone(categorize_transaction(merchant_transaction, rules))
+        categorized_transaction = categorize_transaction(merchant_transaction, rules)
+
+        self.assertIs(categorized_transaction.transaction, merchant_transaction)
+        self.assertIsNone(categorized_transaction.category)
+        self.assertIsNone(categorized_transaction.matched_rule_id)
 
 
 if __name__ == "__main__":
