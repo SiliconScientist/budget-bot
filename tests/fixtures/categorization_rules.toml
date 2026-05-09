@@ -1,0 +1,53 @@
+[[rules]]
+id = "paycheck_income"
+category = "income:paycheck"
+description_contains = ["PAYROLL"]
+is_income = true
+
+[[rules]]
+id = "debit_coffee"
+category = "dining:coffee"
+accounts = ["debit_demo"]
+description_contains = ["COFFEE"]
+
+[[rules]]
+id = "credit_health"
+category = "health:dental"
+accounts = ["credit_demo"]
+details = ["Health & Wellness"]
+
+[[rules]]
+id = "software_subscription"
+category = "software:subscription"
+description_contains = ["SOFTWARE SUBSCRIPTION"]
+
+[[rules]]
+id = "credit_card_payment"
+category = "transfer:credit-card-payment"
+accounts = ["credit_demo"]
+transaction_types = ["Payment"]
+
+[[rules]]
+id = "venmo_coaching"
+category = "business:coaching"
+accounts = ["venmo"]
+description_contains = ["Coaching session"]
+transaction_types = ["Charge"]
+
+[[rules]]
+id = "venmo_reimbursement"
+category = "income:reimbursement"
+accounts = ["venmo"]
+description_contains = ["reimbursement"]
+is_income = true
+
+[[rules]]
+id = "debit_card_general"
+category = "spending:card"
+transaction_types = ["DEBIT_CARD"]
+
+[[rules]]
+id = "venmo_inflow_general"
+category = "transfer:peer-in"
+accounts = ["venmo"]
+is_income = true
