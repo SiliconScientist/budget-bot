@@ -16,13 +16,200 @@ from bb.report import (
     compute_total_spend_by_category_within_bucket,
     compute_total_uncategorized_spend,
     format_category_label,
+    format_monthly_budget_summary,
     format_reporting_month,
     print_categorization_report,
+    print_monthly_budget_summary,
 )
 from bb.transaction import Transaction
 
 
 class ReportTests(unittest.TestCase):
+    def test_format_monthly_budget_summary_includes_bucket_totals_and_categories(
+        self,
+    ) -> None:
+        categorized_transactions = [
+            CategorizedTransaction(
+                transaction=Transaction(
+                    account="debit_demo",
+                    source_file=Path("data/raw/debit_demo/2026/march.csv"),
+                    posting_date="03/01/2026",
+                    description="PAYROLL",
+                    amount=Decimal("1000.00"),
+                    source_metadata={},
+                ),
+                bucket="income",
+                category="paycheck",
+                matched_rule_id="paycheck_income",
+                matched_rule=None,
+                matched_on=(),
+            ),
+            CategorizedTransaction(
+                transaction=Transaction(
+                    account="debit_demo",
+                    source_file=Path("data/raw/debit_demo/2026/march.csv"),
+                    posting_date="03/03/2026",
+                    description="Groceries",
+                    amount=Decimal("-400.00"),
+                    source_metadata={},
+                ),
+                bucket="needs",
+                category="groceries",
+                matched_rule_id="groceries",
+                matched_rule=None,
+                matched_on=(),
+            ),
+            CategorizedTransaction(
+                transaction=Transaction(
+                    account="credit_demo",
+                    source_file=Path("data/raw/credit_demo/2026/march.csv"),
+                    posting_date="03/05/2026",
+                    description="Movie",
+                    amount=Decimal("-250.00"),
+                    source_metadata={},
+                ),
+                bucket="wants",
+                category="movies",
+                matched_rule_id="movies",
+                matched_rule=None,
+                matched_on=(),
+            ),
+            CategorizedTransaction(
+                transaction=Transaction(
+                    account="debit_demo",
+                    source_file=Path("data/raw/debit_demo/2026/march.csv"),
+                    posting_date="03/04/2026",
+                    description="Savings transfer",
+                    amount=Decimal("-100.00"),
+                    source_metadata={},
+                ),
+                bucket="savings",
+                category="savings",
+                matched_rule_id="savings",
+                matched_rule=None,
+                matched_on=(),
+            ),
+            CategorizedTransaction(
+                transaction=Transaction(
+                    account="venmo",
+                    source_file=Path("data/raw/venmo/2026/march.csv"),
+                    posting_date="2026-03-07",
+                    description="Unknown",
+                    amount=Decimal("-25.00"),
+                    source_metadata={},
+                ),
+                bucket="uncategorized",
+                category=UNCATEGORIZED_CATEGORY,
+                matched_rule_id=None,
+                matched_rule=None,
+                matched_on=(),
+            ),
+        ]
+        monthly_budget = MonthlyBudgetConfig(
+            year=2026,
+            month="march",
+            needs=BudgetBucketConfig(frac=0.5, categories=("groceries",)),
+            wants=BudgetBucketConfig(frac=0.3, categories=("movies",)),
+            savings=BudgetBucketConfig(frac=0.2, categories=("savings",)),
+        )
+
+        summary = format_monthly_budget_summary(
+            categorized_transactions,
+            monthly_budget,
+        )
+
+        self.assertEqual(
+            summary.splitlines(),
+            [
+                "Monthly budget summary for 2026-03",
+                "Income: $1,000.00",
+                "Needs: target 50.0%  actual 40.0%  total $400.00",
+                "  - Groceries: $400.00",
+                "Wants: target 30.0%  actual 25.0%  total $250.00",
+                "  - Movies: $250.00",
+                "Savings: target 20.0%  actual 10.0%  total $100.00",
+                "  - Savings: $100.00",
+                "Uncategorized spend: $25.00",
+            ],
+        )
+
+    def test_format_monthly_budget_summary_can_include_uncategorized_transactions(
+        self,
+    ) -> None:
+        categorized_transactions = [
+            CategorizedTransaction(
+                transaction=Transaction(
+                    account="venmo",
+                    source_file=Path("data/raw/venmo/2026/march.csv"),
+                    posting_date="2026-03-07",
+                    description="Unknown",
+                    amount=Decimal("-25.00"),
+                    source_metadata={},
+                ),
+                bucket="uncategorized",
+                category=UNCATEGORIZED_CATEGORY,
+                matched_rule_id=None,
+                matched_rule=None,
+                matched_on=(),
+            )
+        ]
+        monthly_budget = MonthlyBudgetConfig(
+            year=2026,
+            month="march",
+            needs=BudgetBucketConfig(frac=0.5, categories=("groceries",)),
+            wants=BudgetBucketConfig(frac=0.3, categories=("movies",)),
+            savings=BudgetBucketConfig(frac=0.2, categories=("savings",)),
+        )
+
+        summary = format_monthly_budget_summary(
+            categorized_transactions,
+            monthly_budget,
+            include_uncategorized_transactions=True,
+        )
+
+        self.assertEqual(
+            summary.splitlines()[-2:],
+            [
+                "Uncategorized spend: $25.00",
+                "  - 2026-03-07  -$25.00  Unknown",
+            ],
+        )
+
+    def test_print_monthly_budget_summary_writes_formatted_output(self) -> None:
+        categorized_transactions = [
+            CategorizedTransaction(
+                transaction=Transaction(
+                    account="debit_demo",
+                    source_file=Path("data/raw/debit_demo/2026/march.csv"),
+                    posting_date="03/01/2026",
+                    description="PAYROLL",
+                    amount=Decimal("100.00"),
+                    source_metadata={},
+                ),
+                bucket="income",
+                category="paycheck",
+                matched_rule_id="paycheck_income",
+                matched_rule=None,
+                matched_on=(),
+            )
+        ]
+        monthly_budget = MonthlyBudgetConfig(
+            year=2026,
+            month="march",
+            needs=BudgetBucketConfig(frac=0.5, categories=("groceries",)),
+            wants=BudgetBucketConfig(frac=0.3, categories=("movies",)),
+            savings=BudgetBucketConfig(frac=0.2, categories=("savings",)),
+        )
+
+        output = io.StringIO()
+        with redirect_stdout(output):
+            print_monthly_budget_summary(categorized_transactions, monthly_budget)
+
+        self.assertEqual(
+            output.getvalue().splitlines()[0],
+            "Monthly budget summary for 2026-03",
+        )
+
     def test_compute_budget_target_vs_actual_percentages(self) -> None:
         categorized_transactions = [
             CategorizedTransaction(

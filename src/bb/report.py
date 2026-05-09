@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from bb.category import (
+    UNCATEGORIZED_CATEGORY,
     UNCATEGORIZED_BUCKET,
     CategorizedTransaction,
 )
@@ -174,6 +175,82 @@ def compute_budget_target_vs_actual_percentages(
     }
 
 
+def format_monthly_budget_summary(
+    categorized_transactions: list[CategorizedTransaction],
+    monthly_budget: MonthlyBudgetConfig,
+    *,
+    include_uncategorized_transactions: bool = False,
+) -> str:
+    reporting_month = format_reporting_month(monthly_budget.year, monthly_budget.month)
+    total_income = compute_total_monthly_income(categorized_transactions)
+    comparisons = compute_budget_target_vs_actual_percentages(
+        categorized_transactions,
+        monthly_budget,
+    )
+    spend_by_category = compute_total_spend_by_category_within_bucket(
+        categorized_transactions
+    )
+    uncategorized_spend = compute_total_uncategorized_spend(categorized_transactions)
+
+    lines = [
+        f"Monthly budget summary for {reporting_month}",
+        f"Income: {format_currency(total_income)}",
+    ]
+    for bucket in ("needs", "wants", "savings"):
+        comparison = comparisons[bucket]
+        target_text = format_percentage(comparison.target_fraction)
+        actual_text = (
+            format_percentage(comparison.actual_fraction)
+            if comparison.actual_fraction is not None
+            else "n/a"
+        )
+        lines.append(
+            f"{format_category_label(bucket)}: "
+            f"target {target_text}  actual {actual_text}  "
+            f"total {format_currency(comparison.actual_spend)}"
+        )
+        for category, total in sorted(spend_by_category.get(bucket, {}).items()):
+            lines.append(
+                f"  - {format_category_label(category)}: {format_currency(total)}"
+            )
+
+    if include_uncategorized_transactions:
+        lines.append(
+            f"Uncategorized spend: {format_currency(uncategorized_spend)}"
+        )
+        for categorized_transaction in categorized_transactions:
+            amount = categorized_transaction.transaction.amount
+            if (
+                categorized_transaction.bucket == UNCATEGORIZED_BUCKET
+                and categorized_transaction.category == UNCATEGORIZED_CATEGORY
+                and amount < 0
+            ):
+                transaction = categorized_transaction.transaction
+                lines.append(
+                    f"  - {transaction.posting_date}  "
+                    f"{format_signed_currency(amount)}  {transaction.description}"
+                )
+    elif uncategorized_spend > 0:
+        lines.append(f"Uncategorized spend: {format_currency(uncategorized_spend)}")
+
+    return "\n".join(lines)
+
+
+def print_monthly_budget_summary(
+    categorized_transactions: list[CategorizedTransaction],
+    monthly_budget: MonthlyBudgetConfig,
+    *,
+    include_uncategorized_transactions: bool = False,
+) -> None:
+    print(
+        format_monthly_budget_summary(
+            categorized_transactions,
+            monthly_budget,
+            include_uncategorized_transactions=include_uncategorized_transactions,
+        )
+    )
+
+
 def format_signed_currency(amount: Decimal) -> str:
     absolute_amount = abs(amount)
     if amount < 0:
@@ -183,3 +260,7 @@ def format_signed_currency(amount: Decimal) -> str:
 
 def format_category_label(category: str) -> str:
     return category.replace("_", " ").title()
+
+
+def format_percentage(fraction: Decimal) -> str:
+    return f"{(fraction * Decimal('100')):.1f}%"
