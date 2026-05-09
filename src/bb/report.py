@@ -287,11 +287,24 @@ def format_budget_bucket_summary_section(
     )
     target_amount = comparison.monthly_income * comparison.target_fraction
 
-    category_table = make_summary_table()
+    category_table = make_category_summary_table()
     for category, total in sorted(spend_by_category.items()):
-        category_table.add_row([format_category_label(category), format_currency(total)])
+        category_fraction = (
+            total / comparison.monthly_income
+            if comparison.monthly_income > 0
+            else None
+        )
+        category_table.add_row(
+            [
+                format_category_label(category),
+                format_currency(total),
+                format_optional_percentage(category_fraction),
+            ]
+        )
 
-    summary_table = make_summary_table()
+    summary_table = make_stats_summary_table(
+        f"{format_category_label(comparison.bucket)[:-1] if format_category_label(comparison.bucket).endswith('s') else format_category_label(comparison.bucket)} Statistics"
+    )
     summary_table.add_row(["Target", format_currency(target_amount)])
     summary_table.add_row(["Total", format_currency(comparison.actual_spend)])
     summary_table.add_row(
@@ -299,20 +312,33 @@ def format_budget_bucket_summary_section(
     )
     summary_table.add_row(["Percent of income", actual_text])
 
-    lines = [format_category_label(comparison.bucket)]
+    lines: list[str] = []
     if spend_by_category:
         lines.extend(category_table.get_string().splitlines())
     lines.extend(summary_table.get_string().splitlines())
     return lines
 
 
-def make_summary_table() -> PrettyTable:
+def make_category_summary_table() -> PrettyTable:
     table = PrettyTable()
-    table.field_names = ["label", "value"]
-    table.header = False
+    table.field_names = ["Categories", "Values", "Percent"]
+    table.header = True
     table.border = True
-    table.align["label"] = "l"
-    table.align["value"] = "r"
+    table.align["Categories"] = "c"
+    table.align["Values"] = "c"
+    table.align["Percent"] = "c"
+    table.left_padding_width = 1
+    table.right_padding_width = 1
+    return table
+
+
+def make_stats_summary_table(stat_label: str) -> PrettyTable:
+    table = PrettyTable()
+    table.field_names = [stat_label, "Value"]
+    table.header = True
+    table.border = True
+    table.align[stat_label] = "c"
+    table.align["Value"] = "c"
     table.left_padding_width = 1
     table.right_padding_width = 1
     return table
@@ -320,3 +346,9 @@ def make_summary_table() -> PrettyTable:
 
 def format_percentage(fraction: Decimal) -> str:
     return f"{(fraction * Decimal('100')):.1f}%"
+
+
+def format_optional_percentage(fraction: Decimal | None) -> str:
+    if fraction is None:
+        return "n/a"
+    return format_percentage(fraction)
