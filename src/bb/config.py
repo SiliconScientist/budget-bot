@@ -1,5 +1,6 @@
 from pathlib import Path
 from dataclasses import dataclass
+from math import isclose
 from typing import Union
 
 try:
@@ -50,10 +51,22 @@ def validate_month_value(month: Union[str, int]) -> None:
     )
 
 
+def validate_fraction_value(name: str, value: float) -> None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"monthly_budget.{name} must be a number, got {value!r}")
+    if not 0 <= value <= 1:
+        raise ValueError(
+            f"monthly_budget.{name} must be between 0 and 1, got {value!r}"
+        )
+
+
 @dataclass(frozen=True)
 class MonthlyBudgetConfig:
     year: int = 2026
     month: Union[str, int] = "february"
+    needs_frac: float = 0.5
+    wants_frac: float = 0.3
+    savings_frac: float = 0.2
 
     def __post_init__(self) -> None:
         if not isinstance(self.year, int) or self.year < 1:
@@ -61,6 +74,15 @@ class MonthlyBudgetConfig:
                 f"monthly_budget.year must be a positive integer, got {self.year!r}"
             )
         validate_month_value(self.month)
+        validate_fraction_value("needs_frac", self.needs_frac)
+        validate_fraction_value("wants_frac", self.wants_frac)
+        validate_fraction_value("savings_frac", self.savings_frac)
+        total = self.needs_frac + self.wants_frac + self.savings_frac
+        if not isclose(total, 1.0, rel_tol=0.0, abs_tol=1e-9):
+            raise ValueError(
+                "monthly_budget.needs_frac, monthly_budget.wants_frac, and "
+                f"monthly_budget.savings_frac must sum to 1, got {total!r}"
+            )
 
 
 @dataclass(frozen=True)
