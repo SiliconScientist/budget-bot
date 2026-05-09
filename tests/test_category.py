@@ -104,6 +104,7 @@ class CategorizationFixtureTests(unittest.TestCase):
         self.assertEqual(rules[0].id, "paycheck_income")
         self.assertEqual(rules[0].category, "paycheck")
         self.assertEqual(rules[0].bucket, "income")
+        self.assertEqual(rules[0].amounts, ())
         self.assertEqual(rules[0].description_contains, ("PAYROLL",))
         self.assertEqual(rules[0].accounts, ())
         self.assertTrue(rules[0].is_income)
@@ -226,6 +227,40 @@ class CategorizationFixtureTests(unittest.TestCase):
         with self.assertRaisesRegex(
             CategoryRuleConfigError,
             r"rules\[1\]\.credit_card_payment must be a boolean",
+        ):
+            load_category_rules(config_path, DEFAULT_MONTHLY_BUDGET)
+
+    def test_invalid_rule_amounts_field_type_is_rejected(self) -> None:
+        config_path = write_rules_file(
+            (
+                "[[rules]]\n"
+                'id = "rent"\n'
+                'category = "rent"\n'
+                'bucket = "needs"\n'
+                'amounts = "-1000.00"\n'
+            )
+        )
+
+        with self.assertRaisesRegex(
+            CategoryRuleConfigError,
+            r"rules\[1\]\.amounts must be an array of decimal strings",
+        ):
+            load_category_rules(config_path, DEFAULT_MONTHLY_BUDGET)
+
+    def test_invalid_rule_amount_value_is_rejected(self) -> None:
+        config_path = write_rules_file(
+            (
+                "[[rules]]\n"
+                'id = "rent"\n'
+                'category = "rent"\n'
+                'bucket = "needs"\n'
+                'amounts = ["banana"]\n'
+            )
+        )
+
+        with self.assertRaisesRegex(
+            CategoryRuleConfigError,
+            r"rules\[1\]\.amounts must contain only decimal strings",
         ):
             load_category_rules(config_path, DEFAULT_MONTHLY_BUDGET)
 
@@ -396,6 +431,62 @@ class CategorizationFixtureTests(unittest.TestCase):
         self.assertEqual(
             categorized_transaction.matched_on,
             ("credit_card_payment=true", "account=credit_demo"),
+        )
+
+    def test_amount_specific_rule_can_distinguish_shared_payee(self) -> None:
+        config_path = write_rules_file(
+            (
+                "[[rules]]\n"
+                'id = "zelle_example_rent"\n'
+                'category = "rent"\n'
+                'bucket = "needs"\n'
+                'accounts = ["debit_demo"]\n'
+                'amounts = ["-1000.00"]\n'
+                'description_contains = ["Zelle payment to Example Recipient"]\n'
+                "\n"
+                "[[rules]]\n"
+                'id = "zelle_example_utilities"\n'
+                'category = "utilities"\n'
+                'bucket = "needs"\n'
+                'accounts = ["debit_demo"]\n'
+                'description_contains = ["Zelle payment to Example Recipient"]\n'
+            )
+        )
+        rules = load_category_rules(config_path, DEFAULT_MONTHLY_BUDGET)
+        rent_transaction = Transaction(
+            account="debit_demo",
+            source_file=Path("data/raw/debit_demo/2026/april.csv"),
+            posting_date="04/01/2026",
+            description="Zelle payment to Example Recipient DEMO_REFERENCE",
+            amount=Decimal("-1000.00"),
+            source_metadata={"details": "DEBIT", "transaction_type": "ZELLE"},
+        )
+        utilities_transaction = Transaction(
+            account="debit_demo",
+            source_file=Path("data/raw/debit_demo/2026/april.csv"),
+            posting_date="04/15/2026",
+            description="Zelle payment to Example Recipient DEMO_REFERENCE",
+            amount=Decimal("-75.00"),
+            source_metadata={"details": "DEBIT", "transaction_type": "ZELLE"},
+        )
+
+        rent_result = categorize_transaction(rent_transaction, rules)
+        utilities_result = categorize_transaction(utilities_transaction, rules)
+
+        self.assertEqual(rent_result.category, "rent")
+        self.assertEqual(rent_result.matched_rule_id, "zelle_example_rent")
+        self.assertEqual(
+            rent_result.matched_on,
+            (
+                "account=debit_demo",
+                "amount=-1000.00",
+                "description_contains='Zelle payment to Example Recipient'",
+            ),
+        )
+        self.assertEqual(utilities_result.category, "utilities")
+        self.assertEqual(
+            utilities_result.matched_rule_id,
+            "zelle_example_utilities",
         )
 
     def test_internal_transfer_rule_matches_explicit_flag(self) -> None:

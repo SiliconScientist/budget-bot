@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -24,6 +25,7 @@ class CategoryRule:
     id: str
     category: str
     bucket: str | None = None
+    amounts: tuple[Decimal, ...] = ()
     accounts: tuple[str, ...] = ()
     description_contains: tuple[str, ...] = ()
     details: tuple[str, ...] = ()
@@ -94,6 +96,7 @@ def parse_category_rule(
         id=require_non_empty_string(rule_data, "id", index),
         category=category,
         bucket=bucket,
+        amounts=require_decimal_list(rule_data, "amounts", index),
         accounts=require_string_list(rule_data, "accounts", index),
         description_contains=require_string_list(
             rule_data,
@@ -218,6 +221,34 @@ def require_string_list(
     return tuple(value)
 
 
+def require_decimal_list(
+    rule_data: Mapping[str, Any],
+    field_name: str,
+    index: int,
+) -> tuple[Decimal, ...]:
+    value = rule_data.get(field_name)
+    if value is None:
+        return ()
+    if not isinstance(value, list):
+        raise CategoryRuleConfigError(
+            f"rules[{index}].{field_name} must be an array of decimal strings"
+        )
+
+    decimals: list[Decimal] = []
+    for item in value:
+        if not isinstance(item, str) or not item.strip():
+            raise CategoryRuleConfigError(
+                f"rules[{index}].{field_name} must be an array of non-empty decimal strings"
+            )
+        try:
+            decimals.append(Decimal(item))
+        except InvalidOperation as exc:
+            raise CategoryRuleConfigError(
+                f"rules[{index}].{field_name} must contain only decimal strings"
+            ) from exc
+    return tuple(decimals)
+
+
 def require_optional_bool(
     rule_data: Mapping[str, Any],
     field_name: str,
@@ -290,6 +321,9 @@ def rule_matches_transaction(
     if rule.accounts and transaction.account not in rule.accounts:
         return False
 
+    if rule.amounts and transaction.amount not in rule.amounts:
+        return False
+
     if (
         rule.description_contains
         and not any(
@@ -335,6 +369,9 @@ def get_match_reasons(
 
     if rule.accounts:
         reasons.append(f"account={transaction.account}")
+
+    if rule.amounts and transaction.amount in rule.amounts:
+        reasons.append(f"amount={transaction.amount}")
 
     for substring in rule.description_contains:
         if substring in transaction.description:
