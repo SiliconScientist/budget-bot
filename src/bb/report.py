@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from decimal import Decimal
 
+from bb.category import (
+    UNCATEGORIZED_BUCKET,
+    CategorizedTransaction,
+)
 from bb.format import format_currency
-from bb.category import CategorizedTransaction
 
 
 def format_reporting_month(year: int, month: str | int) -> str:
@@ -45,6 +49,64 @@ def print_categorization_report(
             f"{transaction.account:<10}  {category_label:<30}"
             f"{matched_rule_id:<13}  {transaction.description}"
         )
+
+
+def compute_total_monthly_income(
+    categorized_transactions: list[CategorizedTransaction],
+) -> Decimal:
+    return sum(
+        (
+            categorized_transaction.transaction.amount
+            for categorized_transaction in categorized_transactions
+            if categorized_transaction.transaction.is_income
+        ),
+        start=Decimal("0"),
+    )
+
+
+def compute_total_spend_by_budget_bucket(
+    categorized_transactions: list[CategorizedTransaction],
+) -> dict[str, Decimal]:
+    spend_by_bucket: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
+    for categorized_transaction in categorized_transactions:
+        amount = categorized_transaction.transaction.amount
+        if amount >= 0 or categorized_transaction.bucket == UNCATEGORIZED_BUCKET:
+            continue
+        spend_by_bucket[categorized_transaction.bucket] += abs(amount)
+    return dict(spend_by_bucket)
+
+
+def compute_total_spend_by_category_within_bucket(
+    categorized_transactions: list[CategorizedTransaction],
+) -> dict[str, dict[str, Decimal]]:
+    spend_by_bucket: dict[str, dict[str, Decimal]] = defaultdict(
+        lambda: defaultdict(lambda: Decimal("0"))
+    )
+    for categorized_transaction in categorized_transactions:
+        amount = categorized_transaction.transaction.amount
+        if amount >= 0 or categorized_transaction.bucket == UNCATEGORIZED_BUCKET:
+            continue
+        spend_by_bucket[categorized_transaction.bucket][
+            categorized_transaction.category
+        ] += abs(amount)
+    return {
+        bucket: dict(spend_by_category)
+        for bucket, spend_by_category in spend_by_bucket.items()
+    }
+
+
+def compute_total_uncategorized_spend(
+    categorized_transactions: list[CategorizedTransaction],
+) -> Decimal:
+    return sum(
+        (
+            abs(categorized_transaction.transaction.amount)
+            for categorized_transaction in categorized_transactions
+            if categorized_transaction.transaction.amount < 0
+            and categorized_transaction.bucket == UNCATEGORIZED_BUCKET
+        ),
+        start=Decimal("0"),
+    )
 
 
 def format_signed_currency(amount: Decimal) -> str:
