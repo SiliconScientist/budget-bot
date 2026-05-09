@@ -31,6 +31,8 @@ class CategorizedTransaction:
     transaction: Transaction
     category: str
     matched_rule_id: str | None
+    matched_rule: CategoryRule | None
+    matched_on: tuple[str, ...]
 
 
 class CategoryRuleConfigError(ValueError):
@@ -142,12 +144,16 @@ def categorize_transaction(
                 transaction=transaction,
                 category=rule.category,
                 matched_rule_id=rule.id,
+                matched_rule=rule,
+                matched_on=get_match_reasons(rule, transaction),
             )
 
     return CategorizedTransaction(
         transaction=transaction,
         category=UNCATEGORIZED_CATEGORY,
         matched_rule_id=None,
+        matched_rule=None,
+        matched_on=(),
     )
 
 
@@ -184,3 +190,30 @@ def rule_matches_transaction(
         return False
 
     return True
+
+
+def get_match_reasons(
+    rule: CategoryRule,
+    transaction: Transaction,
+) -> tuple[str, ...]:
+    reasons: list[str] = []
+
+    if rule.accounts:
+        reasons.append(f"account={transaction.account}")
+
+    for substring in rule.description_contains:
+        if substring in transaction.description:
+            reasons.append(f"description_contains={substring!r}")
+
+    details = transaction.source_metadata.get("details")
+    if rule.details and details in rule.details:
+        reasons.append(f"details={details!r}")
+
+    transaction_type = transaction.source_metadata.get("transaction_type")
+    if rule.transaction_types and transaction_type in rule.transaction_types:
+        reasons.append(f"transaction_type={transaction_type!r}")
+
+    if rule.is_income is not None:
+        reasons.append(f"is_income={transaction.is_income}")
+
+    return tuple(reasons)

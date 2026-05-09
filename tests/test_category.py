@@ -193,6 +193,33 @@ class CategorizationFixtureTests(unittest.TestCase):
 
         self.assertEqual(categorized_transaction.category, "dining:coffee")
         self.assertEqual(categorized_transaction.matched_rule_id, "debit_coffee")
+        self.assertIsNotNone(categorized_transaction.matched_rule)
+        self.assertEqual(categorized_transaction.matched_rule.id, "debit_coffee")
+        self.assertEqual(
+            categorized_transaction.matched_on,
+            ("account=debit_demo", "description_contains='COFFEE'"),
+        )
+
+    def test_categorized_result_exposes_matched_rule_metadata(self) -> None:
+        rules = load_category_rules(RULES_FIXTURE)
+        transaction = next(
+            tx
+            for tx in load_fixture_transactions("chase_credit.csv", "credit_demo")
+            if tx.description == "DENTAL OFFICE VISIT"
+        )
+
+        categorized_transaction = categorize_transaction(transaction, rules)
+
+        self.assertIsNotNone(categorized_transaction.matched_rule)
+        self.assertEqual(categorized_transaction.matched_rule.id, "credit_health")
+        self.assertEqual(
+            categorized_transaction.matched_rule.details,
+            ("Health & Wellness",),
+        )
+        self.assertEqual(
+            categorized_transaction.matched_on,
+            ("account=credit_demo", "details='Health & Wellness'"),
+        )
 
     def test_overlapping_rules_use_first_match_for_debit_transactions(self) -> None:
         rules = load_category_rules(RULES_FIXTURE)
@@ -236,6 +263,8 @@ class CategorizationFixtureTests(unittest.TestCase):
         self.assertIs(categorized_transaction.transaction, merchant_transaction)
         self.assertEqual(categorized_transaction.category, UNCATEGORIZED_CATEGORY)
         self.assertIsNone(categorized_transaction.matched_rule_id)
+        self.assertIsNone(categorized_transaction.matched_rule)
+        self.assertEqual(categorized_transaction.matched_on, ())
 
 
 if __name__ == "__main__":
