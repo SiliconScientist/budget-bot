@@ -4,17 +4,23 @@ import csv
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
+from typing import Mapping
 
 
 @dataclass(frozen=True)
 class Transaction:
+    """Normalized transaction shape shared by all importers.
+
+    Every importer must provide the universal fields below. Any source-specific
+    data belongs in ``source_metadata``.
+    """
+
     account: str
     source_file: Path
-    details: str
     posting_date: str
     description: str
     amount: Decimal
-    transaction_type: str
+    source_metadata: Mapping[str, str]
 
     @property
     def is_income(self) -> bool:
@@ -32,11 +38,13 @@ def load_transactions(account_dir: Path) -> list[Transaction]:
                     Transaction(
                         account=account_dir.name,
                         source_file=csv_file,
-                        details=row["Details"],
                         posting_date=row["Posting Date"],
                         description=row["Description"],
                         amount=Decimal(row["Amount"]),
-                        transaction_type=row["Type"],
+                        source_metadata={
+                            "details": row["Details"],
+                            "transaction_type": row["Type"],
+                        },
                     )
                 )
 

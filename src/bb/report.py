@@ -12,6 +12,5 @@ def print_income_report(account_name: str, income_transactions: list[Transaction
     print(f"Income for {account_name}: {format_currency(total_income)}")
     for tx in income_transactions:
         print(
-            f"{tx.posting_date}  {format_currency(tx.amount):>10}  "
-            f"{tx.transaction_type:<12}  {tx.description}"
+            f"{tx.posting_date}  {format_currency(tx.amount):>10}  {tx.description}"
         )
