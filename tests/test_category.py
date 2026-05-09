@@ -96,13 +96,14 @@ class CategorizationFixtureTests(unittest.TestCase):
     def test_load_category_rules_returns_typed_rule_models(self) -> None:
         rules = load_category_rules(RULES_FIXTURE)
 
-        self.assertEqual(len(rules), 9)
+        self.assertEqual(len(rules), 10)
         self.assertIsInstance(rules[0], CategoryRule)
         self.assertEqual(rules[0].id, "paycheck_income")
         self.assertEqual(rules[0].category, "income:paycheck")
         self.assertEqual(rules[0].description_contains, ("PAYROLL",))
         self.assertEqual(rules[0].accounts, ())
         self.assertTrue(rules[0].is_income)
+        self.assertFalse(rules[0].credit_card_payment)
 
     def test_missing_rules_array_is_rejected(self) -> None:
         config_path = write_rules_file('default_category = "misc"\n')
@@ -119,13 +120,13 @@ class CategorizationFixtureTests(unittest.TestCase):
                 "[[rules]]\n"
                 'id = "coffee"\n'
                 'category = "dining:coffee"\n'
-                'description_contains = "COFFEE"\n'
+                "credit_card_payment = 1\n"
             )
         )
 
         with self.assertRaisesRegex(
             CategoryRuleConfigError,
-            r"rules\[1\]\.description_contains must be an array of strings",
+            r"rules\[1\]\.credit_card_payment must be a boolean",
         ):
             load_category_rules(config_path)
 
@@ -248,6 +249,53 @@ class CategorizationFixtureTests(unittest.TestCase):
         self.assertEqual(
             categorized_transaction.matched_rule_id,
             "venmo_reimbursement",
+        )
+        self.assertEqual(
+            categorized_transaction.matched_on,
+            ("venmo_reimbursement=true", "account=venmo"),
+        )
+
+    def test_credit_card_payment_rule_matches_explicit_flag(self) -> None:
+        rules = load_category_rules(RULES_FIXTURE)
+        payment_transaction = next(
+            tx
+            for tx in load_fixture_transactions("chase_credit.csv", "credit_demo")
+            if tx.description == "AUTOMATIC PAYMENT - THANK"
+        )
+
+        categorized_transaction = categorize_transaction(payment_transaction, rules)
+
+        self.assertEqual(
+            categorized_transaction.category,
+            "transfer:credit-card-payment",
+        )
+        self.assertEqual(categorized_transaction.matched_rule_id, "credit_card_payment")
+        self.assertEqual(
+            categorized_transaction.matched_on,
+            ("credit_card_payment=true", "account=credit_demo"),
+        )
+
+    def test_internal_transfer_rule_matches_explicit_flag(self) -> None:
+        rules = load_category_rules(RULES_FIXTURE)
+        transaction = Transaction(
+            account="debit_demo",
+            source_file=Path("data/raw/debit_demo/2026/april.csv"),
+            posting_date="04/05/2026",
+            description="ONLINE TRANSFER TO SAVINGS",
+            amount=Decimal("-250.00"),
+            source_metadata={
+                "details": "TRANSFER",
+                "transaction_type": "TRANSFER",
+            },
+        )
+
+        categorized_transaction = categorize_transaction(transaction, rules)
+
+        self.assertEqual(categorized_transaction.category, "transfer:internal")
+        self.assertEqual(categorized_transaction.matched_rule_id, "internal_transfer")
+        self.assertEqual(
+            categorized_transaction.matched_on,
+            ("internal_transfer=true",),
         )
 
     def test_unmatched_transactions_return_uncategorized_result(self) -> None:

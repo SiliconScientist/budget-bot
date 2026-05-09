@@ -24,6 +24,9 @@ class CategoryRule:
     details: tuple[str, ...] = ()
     transaction_types: tuple[str, ...] = ()
     is_income: bool | None = None
+    credit_card_payment: bool = False
+    venmo_reimbursement: bool = False
+    internal_transfer: bool = False
 
 
 @dataclass(frozen=True)
@@ -86,6 +89,9 @@ def parse_category_rule(
             index,
         ),
         is_income=require_optional_bool(rule_data, "is_income", index),
+        credit_card_payment=require_bool(rule_data, "credit_card_payment", index),
+        venmo_reimbursement=require_bool(rule_data, "venmo_reimbursement", index),
+        internal_transfer=require_bool(rule_data, "internal_transfer", index),
     )
 
 
@@ -134,6 +140,17 @@ def require_optional_bool(
     return value
 
 
+def require_bool(
+    rule_data: Mapping[str, Any],
+    field_name: str,
+    index: int,
+) -> bool:
+    value = rule_data.get(field_name, False)
+    if not isinstance(value, bool):
+        raise CategoryRuleConfigError(f"rules[{index}].{field_name} must be a boolean")
+    return value
+
+
 def categorize_transaction(
     transaction: Transaction,
     rules: Sequence[CategoryRule],
@@ -161,6 +178,15 @@ def rule_matches_transaction(
     rule: CategoryRule,
     transaction: Transaction,
 ) -> bool:
+    if rule.credit_card_payment and not is_credit_card_payment(transaction):
+        return False
+
+    if rule.venmo_reimbursement and not is_venmo_reimbursement(transaction):
+        return False
+
+    if rule.internal_transfer and not is_internal_transfer(transaction):
+        return False
+
     if rule.accounts and transaction.account not in rule.accounts:
         return False
 
@@ -198,6 +224,15 @@ def get_match_reasons(
 ) -> tuple[str, ...]:
     reasons: list[str] = []
 
+    if rule.credit_card_payment:
+        reasons.append("credit_card_payment=true")
+
+    if rule.venmo_reimbursement:
+        reasons.append("venmo_reimbursement=true")
+
+    if rule.internal_transfer:
+        reasons.append("internal_transfer=true")
+
     if rule.accounts:
         reasons.append(f"account={transaction.account}")
 
@@ -217,3 +252,27 @@ def get_match_reasons(
         reasons.append(f"is_income={transaction.is_income}")
 
     return tuple(reasons)
+
+
+def is_credit_card_payment(transaction: Transaction) -> bool:
+    return (
+        transaction.account.startswith("credit")
+        and transaction.source_metadata.get("transaction_type") == "Payment"
+    )
+
+
+def is_venmo_reimbursement(transaction: Transaction) -> bool:
+    return (
+        transaction.account == "venmo"
+        and transaction.is_income
+        and transaction.source_metadata.get("transaction_type") == "Payment"
+    )
+
+
+def is_internal_transfer(transaction: Transaction) -> bool:
+    description = transaction.description.upper()
+    return (
+        "TRANSFER" in description
+        or transaction.source_metadata.get("transaction_type") == "TRANSFER"
+        or transaction.source_metadata.get("details") == "TRANSFER"
+    )
