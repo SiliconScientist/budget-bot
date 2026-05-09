@@ -133,4 +133,51 @@ def categorize_transaction(
     transaction: Transaction,
     rules: Sequence[CategoryRule],
 ) -> CategorizedTransaction:
-    raise NotImplementedError("Transaction categorization is not implemented yet")
+    for rule in rules:
+        if rule_matches_transaction(rule, transaction):
+            return CategorizedTransaction(
+                transaction=transaction,
+                category=rule.category,
+                matched_rule_id=rule.id,
+            )
+
+    return CategorizedTransaction(
+        transaction=transaction,
+        category=None,
+        matched_rule_id=None,
+    )
+
+
+def rule_matches_transaction(
+    rule: CategoryRule,
+    transaction: Transaction,
+) -> bool:
+    if rule.accounts and transaction.account not in rule.accounts:
+        return False
+
+    if (
+        rule.description_contains
+        and not any(
+            substring in transaction.description
+            for substring in rule.description_contains
+        )
+    ):
+        return False
+
+    if (
+        rule.details
+        and transaction.source_metadata.get("details") not in rule.details
+    ):
+        return False
+
+    if (
+        rule.transaction_types
+        and transaction.source_metadata.get("transaction_type")
+        not in rule.transaction_types
+    ):
+        return False
+
+    if rule.is_income is not None and transaction.is_income != rule.is_income:
+        return False
+
+    return True
