@@ -6,6 +6,14 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Callable, Iterable, Mapping
 
+from bb.parse import (
+    get_expected_columns,
+    get_statement_parser,
+    read_statement_rows,
+    validate_statement_columns,
+)
+
+
 @dataclass(frozen=True)
 class Transaction:
     """Normalized transaction shape shared by all importers.
@@ -45,13 +53,6 @@ class Transaction:
 
 CsvRow = dict[str, str]
 StatementParser = Callable[[str, Path, Iterable[CsvRow]], list[Transaction]]
-
-from bb.parse import (
-    get_expected_columns,
-    get_statement_parser,
-    read_statement_rows,
-    validate_statement_columns,
-)
 
 
 MONTH_NAME_TO_NUMBER = {
