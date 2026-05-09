@@ -174,6 +174,7 @@ class MonthlyBudgetConfig:
 @dataclass(frozen=True)
 class Config:
     raw_data_path: Path = Path("data/raw")
+    export_path: Path = Path("exports")
     monthly_budget: MonthlyBudgetConfig = MonthlyBudgetConfig()
 
 
@@ -204,6 +205,19 @@ def get_config() -> Config:
             cfg_data["raw_data_path"] = ROOT_DIR / cfg_data["raw_data_path"]
     default_monthly_budget = MonthlyBudgetConfig()
     monthly_budget_data = dict(cfg_data.get("monthly_budget", {}))
+    export_data = dict(monthly_budget_data.pop("export", {}))
+    export_dir = monthly_budget_data.pop("export_dir", None)
+    if "export_path" in cfg_data:
+        export_path = Path(cfg_data["export_path"])
+    elif "path" in export_data:
+        export_path = Path(export_data["path"])
+    elif export_dir is not None:
+        export_path = Path(export_dir)
+    else:
+        export_path = ROOT_DIR / "exports"
+    if not export_path.is_absolute():
+        export_path = ROOT_DIR / export_path
+    cfg_data["export_path"] = export_path
     default_buckets = {
         "needs": default_monthly_budget.needs,
         "wants": default_monthly_budget.wants,
