@@ -2,11 +2,16 @@ from __future__ import annotations
 
 from bb.config import get_config
 from bb.report import print_income_report
+from bb.transactions import load_income_transactions
 
 
 def main() -> None:
     cfg = get_config()
-    print_income_report(cfg)
+    income_transactions = load_income_transactions(
+        cfg.raw_data_dir,
+        cfg.income_account,
+    )
+    print_income_report(cfg.income_account, income_transactions)
 
 
 if __name__ == "__main__":
