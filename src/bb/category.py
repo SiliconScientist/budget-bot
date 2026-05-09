@@ -25,6 +25,7 @@ class CategoryRule:
     id: str
     category: str
     bucket: str | None = None
+    counts_toward_income: bool = True
     amounts: tuple[Decimal, ...] = ()
     accounts: tuple[str, ...] = ()
     description_contains: tuple[str, ...] = ()
@@ -44,6 +45,7 @@ class CategorizedTransaction:
     matched_rule_id: str | None
     matched_rule: CategoryRule | None
     matched_on: tuple[str, ...]
+    counts_toward_income: bool = True
 
 
 class CategoryRuleConfigError(ValueError):
@@ -96,6 +98,12 @@ def parse_category_rule(
         id=require_non_empty_string(rule_data, "id", index),
         category=category,
         bucket=bucket,
+        counts_toward_income=require_bool_with_default(
+            rule_data,
+            "counts_toward_income",
+            index,
+            default=True,
+        ),
         amounts=require_decimal_list(rule_data, "amounts", index),
         accounts=require_string_list(rule_data, "accounts", index),
         description_contains=require_string_list(
@@ -267,7 +275,17 @@ def require_bool(
     field_name: str,
     index: int,
 ) -> bool:
-    value = rule_data.get(field_name, False)
+    return require_bool_with_default(rule_data, field_name, index, default=False)
+
+
+def require_bool_with_default(
+    rule_data: Mapping[str, Any],
+    field_name: str,
+    index: int,
+    *,
+    default: bool,
+) -> bool:
+    value = rule_data.get(field_name, default)
     if not isinstance(value, bool):
         raise CategoryRuleConfigError(f"rules[{index}].{field_name} must be a boolean")
     return value
@@ -283,6 +301,7 @@ def categorize_transaction(
                 transaction=transaction,
                 category=rule.category,
                 bucket=rule.bucket or UNCATEGORIZED_BUCKET,
+                counts_toward_income=rule.counts_toward_income,
                 matched_rule_id=rule.id,
                 matched_rule=rule,
                 matched_on=get_match_reasons(rule, transaction),
@@ -292,6 +311,7 @@ def categorize_transaction(
         transaction=transaction,
         category=UNCATEGORIZED_CATEGORY,
         bucket=UNCATEGORIZED_BUCKET,
+        counts_toward_income=True,
         matched_rule_id=None,
         matched_rule=None,
         matched_on=(),

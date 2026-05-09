@@ -27,6 +27,7 @@ def main() -> None:
         categorized_monthly_transactions,
         cfg.monthly_budget,
     )
+    print_categorization_report(categorized_monthly_transactions)
 
 
 if __name__ == "__main__":

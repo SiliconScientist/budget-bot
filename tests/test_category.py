@@ -230,6 +230,21 @@ class CategorizationFixtureTests(unittest.TestCase):
         ):
             load_category_rules(config_path, DEFAULT_MONTHLY_BUDGET)
 
+    def test_counts_toward_income_can_be_disabled_on_a_rule(self) -> None:
+        config_path = write_rules_file(
+            (
+                "[[rules]]\n"
+                'id = "example_savings"\n'
+                'category = "savings"\n'
+                'bucket = "savings"\n'
+                "counts_toward_income = false\n"
+            )
+        )
+
+        rules = load_category_rules(config_path, DEFAULT_MONTHLY_BUDGET)
+
+        self.assertFalse(rules[0].counts_toward_income)
+
     def test_invalid_rule_amounts_field_type_is_rejected(self) -> None:
         config_path = write_rules_file(
             (

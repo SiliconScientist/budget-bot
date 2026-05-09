@@ -385,6 +385,7 @@ class ReportTests(unittest.TestCase):
                 ),
                 bucket="income",
                 category="paycheck",
+                counts_toward_income=True,
                 matched_rule_id="paycheck_income",
                 matched_rule=None,
                 matched_on=(),
@@ -403,6 +404,7 @@ class ReportTests(unittest.TestCase):
                 ),
                 bucket="income",
                 category="reimbursement",
+                counts_toward_income=True,
                 matched_rule_id="venmo_reimbursement",
                 matched_rule=None,
                 matched_on=(),
@@ -421,6 +423,7 @@ class ReportTests(unittest.TestCase):
                 ),
                 bucket="needs",
                 category="groceries",
+                counts_toward_income=True,
                 matched_rule_id="groceries",
                 matched_rule=None,
                 matched_on=(),
@@ -430,6 +433,47 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(
             compute_total_monthly_income(categorized_transactions),
             Decimal("1212.34"),
+        )
+
+    def test_compute_total_monthly_income_excludes_flagged_inflows(self) -> None:
+        categorized_transactions = [
+            CategorizedTransaction(
+                transaction=Transaction(
+                    account="debit_demo",
+                    source_file=Path("data/raw/debit_demo/2026/april.csv"),
+                    posting_date="04/09/2026",
+                    description="EXAMPLE CHECK DEPOSIT",
+                    amount=Decimal("250.00"),
+                    source_metadata={"details": "CREDIT", "transaction_type": "ACH"},
+                ),
+                bucket="savings",
+                category="savings",
+                counts_toward_income=False,
+                matched_rule_id="example_savings",
+                matched_rule=None,
+                matched_on=(),
+            ),
+            CategorizedTransaction(
+                transaction=Transaction(
+                    account="debit_demo",
+                    source_file=Path("data/raw/debit_demo/2026/april.csv"),
+                    posting_date="04/10/2026",
+                    description="PAYROLL",
+                    amount=Decimal("1000.00"),
+                    source_metadata={"details": "CREDIT", "transaction_type": "ACH"},
+                ),
+                bucket="income",
+                category="paycheck",
+                counts_toward_income=True,
+                matched_rule_id="paycheck_income",
+                matched_rule=None,
+                matched_on=(),
+            ),
+        ]
+
+        self.assertEqual(
+            compute_total_monthly_income(categorized_transactions),
+            Decimal("1000.00"),
         )
 
     def test_compute_total_spend_by_budget_bucket_groups_negative_amounts(self) -> None:

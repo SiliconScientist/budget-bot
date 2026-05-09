@@ -62,6 +62,7 @@ def compute_total_monthly_income(
             categorized_transaction.transaction.amount
             for categorized_transaction in categorized_transactions
             if categorized_transaction.transaction.is_income
+            and categorized_transaction.counts_toward_income
         ),
         start=Decimal("0"),
     )
