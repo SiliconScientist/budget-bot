@@ -175,6 +175,49 @@ class ReportTests(unittest.TestCase):
             ],
         )
 
+    def test_format_monthly_budget_summary_shows_na_for_zero_income_month(self) -> None:
+        categorized_transactions = [
+            CategorizedTransaction(
+                transaction=Transaction(
+                    account="debit_demo",
+                    source_file=Path("data/raw/debit_demo/2026/march.csv"),
+                    posting_date="03/03/2026",
+                    description="Groceries",
+                    amount=Decimal("-40.00"),
+                    source_metadata={},
+                ),
+                bucket="needs",
+                category="groceries",
+                matched_rule_id="groceries",
+                matched_rule=None,
+                matched_on=(),
+            )
+        ]
+        monthly_budget = MonthlyBudgetConfig(
+            year=2026,
+            month="march",
+            needs=BudgetBucketConfig(frac=0.5, categories=("groceries",)),
+            wants=BudgetBucketConfig(frac=0.3, categories=("movies",)),
+            savings=BudgetBucketConfig(frac=0.2, categories=("savings",)),
+        )
+
+        summary = format_monthly_budget_summary(
+            categorized_transactions,
+            monthly_budget,
+        )
+
+        self.assertEqual(
+            summary.splitlines(),
+            [
+                "Monthly budget summary for 2026-03",
+                "Income: $0.00",
+                "Needs: target 50.0%  actual n/a  total $40.00",
+                "  - Groceries: $40.00",
+                "Wants: target 30.0%  actual n/a  total $0.00",
+                "Savings: target 20.0%  actual n/a  total $0.00",
+            ],
+        )
+
     def test_print_monthly_budget_summary_writes_formatted_output(self) -> None:
         categorized_transactions = [
             CategorizedTransaction(
