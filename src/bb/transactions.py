@@ -45,9 +45,23 @@ CHASE_DEBIT_COLUMNS = (
     "Check or Slip #",
 )
 
+CHASE_CREDIT_COLUMNS = (
+    "Transaction Date",
+    "Post Date",
+    "Description",
+    "Category",
+    "Type",
+    "Amount",
+    "Memo",
+)
+
 
 def is_chase_debit_statement(fieldnames: list[str] | None) -> bool:
     return fieldnames == list(CHASE_DEBIT_COLUMNS)
+
+
+def is_chase_credit_statement(fieldnames: list[str] | None) -> bool:
+    return fieldnames == list(CHASE_CREDIT_COLUMNS)
 
 
 def parse_chase_debit_rows(
@@ -71,9 +85,34 @@ def parse_chase_debit_rows(
     ]
 
 
+def parse_chase_credit_rows(
+    account_name: str,
+    source_file: Path,
+    rows: Iterable[CsvRow],
+) -> list[Transaction]:
+    return [
+        Transaction(
+            account=account_name,
+            source_file=source_file,
+            posting_date=row["Post Date"],
+            description=row["Description"],
+            amount=Decimal(row["Amount"]),
+            source_metadata={
+                "details": row["Category"],
+                "transaction_date": row["Transaction Date"],
+                "transaction_type": row["Type"],
+                "memo": row["Memo"],
+            },
+        )
+        for row in rows
+    ]
+
+
 def get_statement_parser(fieldnames: list[str] | None) -> StatementParser:
     if is_chase_debit_statement(fieldnames):
         return parse_chase_debit_rows
+    if is_chase_credit_statement(fieldnames):
+        return parse_chase_credit_rows
 
     raise UnsupportedStatementFormat(f"Unsupported statement columns: {fieldnames}")
 
