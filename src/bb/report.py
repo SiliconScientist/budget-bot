@@ -4,7 +4,6 @@ from decimal import Decimal
 
 from bb.format import format_currency
 from bb.category import CategorizedTransaction
-from bb.transaction import Transaction
 
 
 def format_reporting_month(year: int, month: str | int) -> str:
@@ -30,22 +29,6 @@ def format_reporting_month(year: int, month: str | int) -> str:
         "december": 12,
     }[normalized.lower()]
     return f"{year}-{month_number:02d}"
-
-
-def print_income_report(
-    reporting_year: int,
-    reporting_month: str | int,
-    income_transactions: list[Transaction],
-) -> None:
-    total_income = sum((tx.amount for tx in income_transactions), start=Decimal("0"))
-    reporting_period = format_reporting_month(reporting_year, reporting_month)
-
-    print(f"Income for {reporting_period}: {format_currency(total_income)}")
-    for tx in income_transactions:
-        print(
-            f"{tx.posting_date}  {format_currency(tx.amount):>10}  "
-            f"{tx.account:<10}  {tx.description}"
-        )
 
 
 def print_categorization_report(

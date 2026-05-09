@@ -7,9 +7,6 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Callable, Iterable, Mapping
 
-from bb.config import MonthlyBudgetConfig
-
-
 @dataclass(frozen=True)
 class Transaction:
     """Normalized transaction shape shared by all importers.
@@ -321,16 +318,3 @@ def filter_transactions_by_month(
         for tx in transactions
         if tx.posting_year == year and tx.posting_month == month
     ]
-
-
-def load_income_transactions(
-    raw_data_dir: Path,
-    monthly_budget: MonthlyBudgetConfig,
-) -> list[Transaction]:
-    transactions = load_all_transactions(raw_data_dir)
-    monthly_transactions = filter_transactions_by_month(
-        transactions,
-        monthly_budget.year,
-        monthly_budget.month,
-    )
-    return [tx for tx in monthly_transactions if tx.is_income]
