@@ -1,0 +1,5 @@
+raw_data_path = "data/raw"
+
+[monthly_budget]
+year = 2026
+month = "february"

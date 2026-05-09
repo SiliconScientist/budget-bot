@@ -7,7 +7,7 @@ from bb.transactions import load_income_transactions
 
 def main() -> None:
     cfg = get_config()
-    income_transactions = load_income_transactions(cfg.raw_data_dir)
+    income_transactions = load_income_transactions(cfg.raw_data_path)
     print_income_report(income_transactions)
 
 
