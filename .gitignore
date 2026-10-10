@@ -225,3 +225,32 @@ config.toml
 
 # Data
 data/
+
+# Private financial output, statements, backups, and credentials
+exports/
+.private/
+.env.*
+.aws/
+.ssh/
+*.csv
+*.tsv
+*.xlsx
+*.xls
+*.pdf
+*.ofx
+*.qfx
+*.qif
+*.db
+*.sqlite
+*.sqlite3
+*.pem
+*.key
+*.p12
+*.pfx
+*.bundle
+*.zip
+*.gz
+*.bak
+
+# Only reviewed, fictional CSV fixtures belong in Git.
+!tests/fixtures/*.csv

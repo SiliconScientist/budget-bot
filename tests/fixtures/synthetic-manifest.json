@@ -1,0 +1,7 @@
+{
+  "tests/fixtures/chase_credit.csv": "606b8e735ad972956c1c495fc1a28a1a5e1f634d1684dabced26de2c4cd6345b",
+  "tests/fixtures/chase_debit.csv": "fdffe1d5d1a9bfb3970e7ffeb8e00455facb079bd2c3c2f15eed83f37a3b0fd1",
+  "tests/fixtures/chase_debit_february.csv": "9c575bfb57fbfab1701c4210dbffc3234b16738da7165f92372ff804726c737e",
+  "tests/fixtures/expected_categories.csv": "545c225a91135d2228d10ded9d50482c98e253e95c98c9ab9d07d01e489d11e2",
+  "tests/fixtures/venmo.csv": "1810b8da06638b8679a5e8c44ef51035ef9be22ad5f328c84e9717079b06e7d3"
+}

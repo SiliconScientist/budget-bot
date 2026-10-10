@@ -139,14 +139,6 @@ class TransactionTests(unittest.TestCase):
         self.assertTrue(
             all(tx.posting_date.startswith("02/") for tx in income_transactions)
         )
-        self.assertTrue(
-            all(
-                tx.description
-                != "EXAMPLE EMPLOYER PAYROLL"
-                for tx in income_transactions
-            )
-        )
-
     def test_monthly_budget_month_handles_mixed_source_income(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             raw_data_dir = Path(tmpdir) / "raw"

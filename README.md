@@ -1,6 +1,39 @@
 # Budget-Bot
 I'm tired of tallying up my budget, so I'm building this repo to do it for me
 
+## Privacy and development
+
+Keep real statements under `data/` and generated workbooks under `exports/`
+or `data/`. Both directories are ignored, along with local `config.toml`,
+`category.toml`, environment files, and common financial export formats.
+Never force-add private files. Ignore rules do not remove files already in Git.
+
+Install the local commit guard after cloning:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+The guard checks **staged content**, rejects private file paths, and catches
+common credentials, account suffixes, bank references, and personal emails.
+GitHub Actions repeats the check on pushes and pull requests. CI runs after
+upload, so the local guard and staged-diff review are the first line of defense.
+
+All checked-in fixtures use fictional identities and financial values.
+Use account labels such as `debit_demo` and `credit_demo`. Never build a fixture
+by copying a real statement and merely changing its names. CSV fixtures must
+match the SHA-256 hashes in `tests/fixtures/synthetic-manifest.json`; update a
+hash only after reviewing the entire fixture as synthetic.
+
+Before committing, run `git diff --cached` and `python3 scripts/check_privacy.py`.
+Review fixture and manifest changes together. Hooks can be bypassed, and these
+checks cannot recognize every kind of personal information.
+
+The CLI prints private transaction details when run with real data. Use only
+synthetic data for screenshots, demos, issue reports, and CI. Enable GitHub
+secret scanning and push protection when available; credential detection does
+not replace review of financial information.
+
 ## Current command
 
 Run the monthly budget summary for the configured month:

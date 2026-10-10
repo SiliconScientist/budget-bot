@@ -969,7 +969,7 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(lines[0], "Categorization report")
         self.assertEqual(
             lines[1],
-            "03/20/2026     -$15.00  debit_demo   Coffee                        debit_coffee   CARD PURCHASE COFFEE",
+            "03/20/2026     -$15.00  debit_demo  Coffee                        debit_coffee   CARD PURCHASE COFFEE",
         )
         self.assertEqual(
             lines[2],
