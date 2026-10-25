@@ -172,10 +172,23 @@ class MonthlyBudgetConfig:
 
 
 @dataclass(frozen=True)
+class MonthlyBudgetExportConfig:
+    regenerate: bool = True
+    path: Path = Path("exports")
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.regenerate, bool):
+            raise ValueError(
+                "monthly_budget.export.regenerate must be a boolean, "
+                f"got {self.regenerate!r}"
+            )
+
+
+@dataclass(frozen=True)
 class Config:
     raw_data_path: Path = Path("data/raw")
-    export_path: Path = Path("exports")
     monthly_budget: MonthlyBudgetConfig = MonthlyBudgetConfig()
+    export: MonthlyBudgetExportConfig = MonthlyBudgetExportConfig()
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -206,18 +219,20 @@ def get_config() -> Config:
     default_monthly_budget = MonthlyBudgetConfig()
     monthly_budget_data = dict(cfg_data.get("monthly_budget", {}))
     export_data = dict(monthly_budget_data.pop("export", {}))
-    export_dir = monthly_budget_data.pop("export_dir", None)
-    if "export_path" in cfg_data:
-        export_path = Path(cfg_data["export_path"])
+    legacy_export_path = cfg_data.pop("export_path", None)
+    if legacy_export_path is not None:
+        export_path = Path(legacy_export_path)
     elif "path" in export_data:
         export_path = Path(export_data["path"])
-    elif export_dir is not None:
-        export_path = Path(export_dir)
     else:
         export_path = ROOT_DIR / "exports"
     if not export_path.is_absolute():
         export_path = ROOT_DIR / export_path
-    cfg_data["export_path"] = export_path
+    export_regenerate = export_data.get("regenerate", True)
+    cfg_data["export"] = MonthlyBudgetExportConfig(
+        regenerate=export_regenerate,
+        path=export_path,
+    )
     default_buckets = {
         "needs": default_monthly_budget.needs,
         "wants": default_monthly_budget.wants,

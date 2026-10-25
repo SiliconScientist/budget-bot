@@ -3,7 +3,7 @@ from __future__ import annotations
 from bb.category import categorize_transactions, load_category_rules
 from bb.config import get_category_config_path, get_config
 from bb.export import export_yearly_budget_workbook
-from bb.report import print_monthly_budget_summary
+from bb.report import print_categorization_report, print_monthly_budget_summary
 from bb.transaction import filter_transactions_by_month, load_all_transactions
 
 
@@ -23,23 +23,24 @@ def main() -> None:
         monthly_transactions,
         category_rules,
     )
-
     print_monthly_budget_summary(
         categorized_monthly_transactions,
         cfg.monthly_budget,
     )
-    export_yearly_budget_workbook(
-        lambda month: categorize_transactions(
-            filter_transactions_by_month(
-                all_transactions,
-                cfg.monthly_budget.year,
-                month,
+    print_categorization_report(categorized_monthly_transactions)
+    if cfg.export.regenerate:
+        export_yearly_budget_workbook(
+            lambda month: categorize_transactions(
+                filter_transactions_by_month(
+                    all_transactions,
+                    cfg.monthly_budget.year,
+                    month,
+                ),
+                category_rules,
             ),
-            category_rules,
-        ),
-        cfg.monthly_budget,
-        cfg.export_path,
-    )
+            cfg.monthly_budget,
+            cfg.export.path,
+        )
 
 
 if __name__ == "__main__":
